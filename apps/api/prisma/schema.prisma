@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+enum RuleType {
+  URL
+  INVITE
+  BLACKLIST
+  SPAM
+  AI
+  OTHER
+}
+
+enum ViolationStatus {
+  FLAGGED
+  REVIEWED
+  ESCALATED
+  KICK_PENDING
+  RESOLVED
+}
+
+enum ActionTaken {
+  NONE
+  WARNING
+  BACKOFFICE_TAG
+  ADMIN_NOTIFY
+  PENDING_KICK
+  KICKED
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Group {
+  id              String           @id @default(cuid())
+  lineGroupId     String           @unique
+  name            String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  ruleSetting     RuleSetting?
+  messages        MessageLog[]
+  violations      Violation[]
+  aiAssessments   AiAssessment[]
+  blacklistEntries BlacklistEntry[]
+  whitelistEntries WhitelistEntry[]
+  pendingActions  PendingAction[]
+}
+
+model RuleSetting {
+  id                  String   @id @default(cuid())
+  groupId             String   @unique
+  group               Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  protectUrl          Boolean  @default(true)
+  protectInvite       Boolean  @default(true)
+  blacklistWords      String[] @default([])
+  spamWindowSeconds   Int      @default(10)
+  spamMaxMessages     Int      @default(5)
+  warningThreshold    Int      @default(3)
+  reviewThreshold     Int      @default(5)
+  kickThreshold       Int      @default(7)
+  warningPoints       Int      @default(2)
+  reviewPoints        Int      @default(4)
+  kickPoints          Int      @default(6)
+  warningMessage      String   @default("請注意，您的訊息已違反群組規則。")
+  adminNotifyLineIds  String[] @default([])
+  adminNotifyTelegramChatIds String[] @default([])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model MessageLog {
+  id           String   @id @default(cuid())
+  groupId      String
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  lineGroupId  String
+  lineUserId   String
+  content      String?  @db.Text
+  messageType  String   @default("text")
+  raw          Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  violations   Violation[]
+  aiAssessment AiAssessment?
+}
+
+model Violation {
+  id            String          @id @default(cuid())
+  groupId       String
+  group         Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  messageLogId  String?
+  messageLog    MessageLog?     @relation(fields: [messageLogId], references: [id], onDelete: SetNull)
+  lineUserId    String
+  lineGroupId   String
+  ruleType      RuleType
+  category      String
+  reason        String          @db.Text
+  riskScore     Float
+  confidence    Float
+  points        Int             @default(0)
+  actionTaken   ActionTaken     @default(NONE)
+  status        ViolationStatus @default(FLAGGED)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model AiAssessment {
+  id           String   @id @default(cuid())
+  groupId      String
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  messageLogId String   @unique
+  messageLog   MessageLog @relation(fields: [messageLogId], references: [id], onDelete: Cascade)
+  lineUserId   String
+  riskScore    Float
+  category     String
+  reason       String   @db.Text
+  confidence   Float
+  raw          Json
+  createdAt    DateTime @default(now())
+}
+
+model BlacklistEntry {
+  id        String   @id @default(cuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  value     String
+  note      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupId, value])
+}
+
+model WhitelistEntry {
+  id        String   @id @default(cuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  value     String
+  note      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupId, value])
+}
+
+model PendingAction {
+  id           String   @id @default(cuid())
+  groupId      String
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  lineUserId   String
+  lineGroupId  String
+  messageLogId String?
+  reason       String   @db.Text
+  actionType   String
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

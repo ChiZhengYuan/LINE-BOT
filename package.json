@@ -1,0 +1,17 @@
+{
+  "name": "line-group-manager",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c green,blue \"npm run dev --workspace @line-group-manager/api\" \"npm run dev --workspace @line-group-manager/web\"",
+    "install:all": "npm install",
+    "db:generate": "npm run prisma:generate --workspace @line-group-manager/api",
+    "db:push": "npm run prisma:push --workspace @line-group-manager/api",
+    "db:studio": "npm run prisma:studio --workspace @line-group-manager/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

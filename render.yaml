@@ -1,0 +1,53 @@
+databases:
+  - name: line-group-manager-db
+    plan: starter
+
+services:
+  - type: web
+    name: line-group-manager-api
+    runtime: node
+    rootDir: apps/api
+    plan: starter
+    buildCommand: npm install && npm run prisma:generate
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: line-group-manager-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_ADMIN_USER_IDS
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_IDS
+        sync: false
+      - key: AI_PROVIDER
+        value: heuristic
+      - key: AI_API_URL
+        value: https://api.openai.com/v1/chat/completions
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: gpt-4o-mini
+      - key: AI_SYSTEM_PROMPT
+        value: You are a LINE group moderation classifier. Return strict JSON only.
+
+  - type: web
+    name: line-group-manager-web
+    runtime: node
+    rootDir: apps/web
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
