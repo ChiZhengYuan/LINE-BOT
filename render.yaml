@@ -31,15 +31,15 @@ services:
       - key: TELEGRAM_CHAT_IDS
         sync: false
       - key: AI_PROVIDER
-        value: gemini
+        value: heuristic
       - key: AI_API_URL
-        value: https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+        value: https://api.openai.com/v1/chat/completions
       - key: AI_API_KEY
-        sync: false
+        value: ""
       - key: AI_MODEL
-        value: gemini-2.5-flash-lite
+        value: gpt-4o-mini
       - key: AI_SYSTEM_PROMPT
-        value: You are a LINE group moderation classifier. Return strict JSON only with keys: risk_score, category, reason, confidence.
+        value: You are a LINE group moderation classifier. Return strict JSON only.
 
   - type: web
     name: line-group-manager-web

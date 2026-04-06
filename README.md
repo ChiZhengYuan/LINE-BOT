@@ -50,11 +50,16 @@ npm run dev
 - Frontend: `http://localhost:3000`
 - API health: `http://localhost:4000/health`
 
-## Gemini AI Settings
+## AI Settings
 
-This project defaults to Gemini.
+AI is optional. If you want a no-AI deployment, keep these values as-is:
 
-Recommended values:
+```env
+AI_PROVIDER="heuristic"
+AI_API_KEY=""
+```
+
+If you want Gemini later, use these values:
 
 ```env
 AI_PROVIDER="gemini"
@@ -160,4 +165,3 @@ API:
 Frontend:
 
 - `NEXT_PUBLIC_API_BASE_URL`
-
