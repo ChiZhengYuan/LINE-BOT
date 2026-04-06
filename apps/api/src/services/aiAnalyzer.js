@@ -3,7 +3,7 @@ import { RuleType } from "@prisma/client";
 
 function heuristicAnalyze(content, matches, spamCount) {
   const hasUrl = /(https?:\/\/|www\.)/i.test(content);
-  const hasInvite = /(line\.me\/ti\/g\/|line\.me\/R\/ti\/g\/|line\.me\/~\/g\/|加入群組)/i.test(content);
+  const hasInvite = /(line\.me\/ti\/g\/|line\.me\/R\/ti\/g\/|line\.me\/~\/g\/)/i.test(content);
   const length = content.length;
 
   let riskScore = 8;
@@ -27,9 +27,10 @@ function heuristicAnalyze(content, matches, spamCount) {
   return {
     riskScore,
     category,
-    reason: category === "benign"
-      ? "訊息內容未顯示明顯違規特徵"
-      : `規則與內容特徵顯示 ${category} 風險`,
+    reason:
+      category === "benign"
+        ? "訊息看起來正常，未命中明顯違規規則。"
+        : `系統判定此訊息可能屬於 ${category} 類型違規。`,
     confidence: Math.min(0.95, 0.55 + riskScore / 200),
     raw: {
       mode: "heuristic",
@@ -50,10 +51,7 @@ export async function analyzeAiRisk({ content, matches, spamCount }) {
   try {
     const response = await fetch(env.aiApiUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.aiApiKey}`,
-        "Content-Type": "application/json"
-      },
+      headers: buildHeaders(),
       body: JSON.stringify({
         model: env.aiModel,
         temperature: 0,
@@ -83,7 +81,7 @@ export async function analyzeAiRisk({ content, matches, spamCount }) {
     }
 
     const payload = await response.json();
-    const message = payload.choices?.[0]?.message?.content || "";
+    const message = extractMessageContent(payload);
     const parsed = safeParseJson(message);
 
     if (!parsed) {
@@ -96,10 +94,54 @@ export async function analyzeAiRisk({ content, matches, spamCount }) {
       ...heuristicAnalyze(content, matches, spamCount),
       raw: {
         mode: "fallback",
+        provider: env.aiProvider,
         error: error.message
       }
     };
   }
+}
+
+function buildHeaders() {
+  const headers = {
+    Authorization: `Bearer ${env.aiApiKey}`,
+    "Content-Type": "application/json"
+  };
+
+  if (env.aiProvider === "gemini") {
+    headers["x-goog-api-key"] = env.aiApiKey;
+  }
+
+  return headers;
+}
+
+function extractMessageContent(payload) {
+  const choiceContent = payload.choices?.[0]?.message?.content;
+  if (typeof choiceContent === "string" && choiceContent.trim()) {
+    return choiceContent;
+  }
+
+  if (Array.isArray(choiceContent)) {
+    const joined = choiceContent
+      .map((part) => (typeof part === "string" ? part : part?.text || ""))
+      .join("")
+      .trim();
+    if (joined) {
+      return joined;
+    }
+  }
+
+  const candidateParts = payload.candidates?.[0]?.content?.parts;
+  if (Array.isArray(candidateParts)) {
+    const text = candidateParts
+      .map((part) => part?.text || "")
+      .join("")
+      .trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
 }
 
 function normalizeAiPayload(payload, content, matches, spamCount) {
@@ -125,7 +167,9 @@ function normalizeAiPayload(payload, content, matches, spamCount) {
 function safeParseJson(text) {
   try {
     const trimmed = text.trim();
-    const jsonText = trimmed.startsWith("```") ? trimmed.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim() : trimmed;
+    const jsonText = trimmed.startsWith("```")
+      ? trimmed.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim()
+      : trimmed;
     return JSON.parse(jsonText);
   } catch {
     return null;

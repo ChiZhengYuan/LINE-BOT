@@ -30,11 +30,15 @@ export const env = {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
-  aiProvider: process.env.AI_PROVIDER || "heuristic",
-  aiApiUrl: process.env.AI_API_URL || "https://api.openai.com/v1/chat/completions",
+  aiProvider: process.env.AI_PROVIDER || "gemini",
+  aiApiUrl:
+    process.env.AI_API_URL ||
+    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
   aiApiKey: process.env.AI_API_KEY || "",
-  aiModel: process.env.AI_MODEL || "gpt-4o-mini",
-  aiSystemPrompt: process.env.AI_SYSTEM_PROMPT || "You are a LINE group moderation classifier. Return strict JSON only.",
+  aiModel: process.env.AI_MODEL || "gemini-2.5-flash-lite",
+  aiSystemPrompt:
+    process.env.AI_SYSTEM_PROMPT ||
+    "You are a LINE group moderation classifier. Return strict JSON only with keys: risk_score, category, reason, confidence.",
   defaultAdminEmail: process.env.DEFAULT_ADMIN_EMAIL || "admin@example.com",
   defaultAdminPassword: process.env.DEFAULT_ADMIN_PASSWORD || "Admin12345!",
   defaultAdminName: process.env.DEFAULT_ADMIN_NAME || "System Admin"
