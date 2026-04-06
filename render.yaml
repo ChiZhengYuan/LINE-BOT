@@ -9,7 +9,7 @@ services:
     rootDir: apps/api
     plan: starter
     buildCommand: npm install && npm run prisma:generate
-    startCommand: npm start
+    startCommand: sh -c "npm run prisma:push --workspace @line-group-manager/api && npm start"
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
