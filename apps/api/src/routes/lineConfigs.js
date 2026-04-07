@@ -9,10 +9,10 @@ import { encryptSecret, decryptSecret, maskSecret } from "../services/cryptoVaul
 export const lineConfigsRouter = express.Router();
 
 const createSchema = z.object({
-  configName: z.string().min(1),
-  channelId: z.string().min(1),
-  channelSecret: z.string().min(1),
-  channelAccessToken: z.string().min(1),
+  configName: z.string().trim().min(1, "請填寫名稱"),
+  channelId: z.string().trim().min(1, "請填寫 Channel ID"),
+  channelSecret: z.string().trim().min(1, "請填寫 Channel Secret"),
+  channelAccessToken: z.string().trim().min(1, "請填寫 Channel Access Token"),
   basicId: z.string().optional().nullable(),
   botId: z.string().optional().nullable(),
   webhookUrl: z.string().optional().nullable(),

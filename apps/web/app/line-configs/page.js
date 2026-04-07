@@ -83,9 +83,21 @@ export default function LineConfigsPage() {
 
   const saveConfig = async (event) => {
     event.preventDefault();
-    setSaving(true);
     setError("");
     setSuccess("");
+
+    const missingFields = [];
+    if (!form.configName.trim()) missingFields.push("名稱");
+    if (!form.channelId.trim()) missingFields.push("Channel ID");
+    if (!editingId && !form.channelSecret.trim()) missingFields.push("Channel Secret");
+    if (!editingId && !form.channelAccessToken.trim()) missingFields.push("Channel Access Token");
+
+    if (missingFields.length > 0) {
+      setError(`請先填寫：${missingFields.join("、")}`);
+      return;
+    }
+
+    setSaving(true);
 
     try {
       const payload = {

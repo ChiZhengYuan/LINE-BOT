@@ -95,6 +95,34 @@ autoRepliesRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async 
   res.status(201).json({ item });
 });
 
+autoRepliesRouter.delete("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const query = parseQuery(listSchema, req, res);
+  if (!query) return;
+
+  const where = {};
+  if (query.groupId) where.groupId = query.groupId;
+  if (query.isActive === "true") where.isActive = true;
+  if (query.isActive === "false") where.isActive = false;
+  if (query.q) {
+    where.OR = [
+      { keyword: { contains: query.q, mode: "insensitive" } },
+      { responseText: { contains: query.q, mode: "insensitive" } }
+    ];
+  }
+
+  const result = await prisma.autoReplyRule.deleteMany({ where });
+
+  await logOperation({
+    adminUserId: req.user.sub,
+    groupId: query.groupId || null,
+    eventType: "AUTO_REPLY_DELETED",
+    title: "刪除關鍵字回覆",
+    detail: `共刪除 ${result.count} 筆`
+  });
+
+  res.json({ ok: true, deletedCount: result.count });
+});
+
 autoRepliesRouter.patch("/:ruleId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
   const payload = req.body || {};
   const item = await prisma.autoReplyRule.update({
@@ -136,4 +164,3 @@ autoRepliesRouter.delete("/:ruleId", requireAuth, requireRole("ADMIN", "MANAGER"
 
   res.json({ ok: true });
 });
-
