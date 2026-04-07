@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "prestart": "npm run prisma:push",
+    "prestart": "npm run prisma:generate && npm run prisma:push",
     "start": "node src/index.js",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
