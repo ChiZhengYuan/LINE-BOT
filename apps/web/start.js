@@ -1,6 +1,7 @@
 import { existsSync, cpSync, mkdirSync } from "node:fs";
+import { spawn } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const port = process.env.PORT || "3000";
 const baseDir = path.dirname(fileURLToPath(import.meta.url));
@@ -20,7 +21,18 @@ if (!serverPath) {
 process.env.PORT = port;
 process.env.HOSTNAME = "0.0.0.0";
 
-await import(pathToFileURL(serverPath).href);
+const child = spawn(process.execPath, [serverPath], {
+  stdio: "inherit",
+  env: process.env
+});
+
+child.on("exit", (code, signal) => {
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 0);
+});
 
 function findStandaloneDir(baseDir) {
   const candidates = [
