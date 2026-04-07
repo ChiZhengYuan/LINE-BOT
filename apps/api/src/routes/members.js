@@ -14,7 +14,7 @@ const listSchema = z.object({
   q: z.string().optional(),
   isBlacklisted: z.string().optional(),
   isWhitelisted: z.string().optional(),
-  sortBy: z.enum(["joinedAt", "messageCount", "violationCount", "riskScore", "activeScore"]).optional(),
+  sortBy: z.enum(["updatedAt", "joinedAt", "messageCount", "violationCount", "riskScore", "activeScore"]).optional(),
   sortDir: z.enum(["asc", "desc"]).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional()
