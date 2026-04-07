@@ -37,3 +37,21 @@ export async function pushText(to, text) {
     })
   });
 }
+
+export async function getProfile(userId) {
+  if (!env.lineChannelAccessToken || !userId) {
+    return null;
+  }
+
+  const response = await fetch(`${LINE_API}/profile/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${env.lineChannelAccessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}

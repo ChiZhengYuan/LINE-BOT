@@ -39,83 +39,241 @@ enum ActionTaken {
   KICKED
 }
 
+enum NotificationType {
+  VIOLATION
+  NEW_MEMBER
+  HIGH_RISK
+  ANNOUNCEMENT_SENT
+  LOTTERY_DRAWN
+  MISSION_DUE
+  SYSTEM_ERROR
+  WELCOME
+  GROUP_SETTING_CHANGED
+}
+
+enum MatchType {
+  EXACT
+  CONTAINS
+  REGEX
+}
+
+enum ResponseType {
+  TEXT
+  FLEX
+}
+
+enum ScheduleType {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum MissionType {
+  CHECKIN
+  MESSAGE_COUNT
+  KEYWORD
+}
+
+enum RankingPeriod {
+  DAY
+  WEEK
+  MONTH
+  TOTAL
+}
+
+enum LotteryStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+  DRAWN
+  CANCELLED
+}
+
+enum OperationType {
+  LOGIN
+  GROUP_SETTING_CHANGED
+  BLACKLIST_CHANGED
+  WHITELIST_CHANGED
+  VIOLATION_REVIEWED
+  ANNOUNCEMENT_CREATED
+  ANNOUNCEMENT_UPDATED
+  ANNOUNCEMENT_SENT
+  LOTTERY_CREATED
+  LOTTERY_UPDATED
+  LOTTERY_DRAWN
+  MISSION_CREATED
+  MISSION_UPDATED
+  AUTO_REPLY_CREATED
+  AUTO_REPLY_UPDATED
+  CHECKIN_CREATED
+  MEMBER_UPDATED
+  SYSTEM_ERROR
+}
+
 model AdminUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String         @id @default(cuid())
+  email        String         @unique
   passwordHash String
   name         String?
-  role         Role     @default(ADMIN)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         Role           @default(ADMIN)
+  operationLogs OperationLog[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 }
 
 model AppSetting {
-  key                 String   @id
-  telegramBotToken    String?
-  telegramChatIds     String[]  @default([])
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  key              String   @id
+  telegramBotToken String?
+  telegramChatIds  String[]  @default([])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Group {
-  id              String           @id @default(cuid())
-  lineGroupId     String           @unique
-  name            String?
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  ruleSetting     RuleSetting?
-  messages        MessageLog[]
-  violations      Violation[]
-  aiAssessments   AiAssessment[]
+  id               String            @id @default(cuid())
+  lineGroupId      String            @unique
+  name             String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  ruleSetting      RuleSetting?
+  groupSetting     GroupSetting?
+  members          Member[]
+  memberStats      MemberStats[]
+  messages         MessageLog[]
+  violations       Violation[]
+  aiAssessments    AiAssessment[]
   blacklistEntries BlacklistEntry[]
   whitelistEntries WhitelistEntry[]
-  pendingActions  PendingAction[]
+  pendingActions   PendingAction[]
+  operationLogs    OperationLog[]
+  notifications    Notification[]
+  welcomeSetting   WelcomeSetting?
+  announcements    Announcement[]
+  autoReplyRules   AutoReplyRule[]
+  checkins         Checkin[]
+  missions         Mission[]
+  lotteries        Lottery[]
+  rankings         Ranking[]
 }
 
 model RuleSetting {
-  id                  String   @id @default(cuid())
-  groupId             String   @unique
-  group               Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  protectUrl          Boolean  @default(true)
-  protectInvite       Boolean  @default(true)
-  blacklistWords      String[] @default([])
-  spamWindowSeconds   Int      @default(10)
-  spamMaxMessages     Int      @default(5)
-  warningThreshold    Int      @default(3)
-  reviewThreshold     Int      @default(5)
-  kickThreshold       Int      @default(7)
-  warningPoints       Int      @default(2)
-  reviewPoints        Int      @default(4)
-  kickPoints          Int      @default(6)
-  warningMessage      String   @default("請注意，您的訊息已違反群組規則。")
-  adminNotifyLineIds  String[] @default([])
-  adminNotifyTelegramChatIds String[] @default([])
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                         String   @id @default(cuid())
+  groupId                    String   @unique
+  group                      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  protectUrl                 Boolean  @default(true)
+  protectInvite              Boolean  @default(true)
+  blacklistWords             String[] @default([])
+  spamWindowSeconds          Int      @default(10)
+  spamMaxMessages            Int      @default(5)
+  warningThreshold           Int      @default(3)
+  reviewThreshold            Int      @default(5)
+  kickThreshold              Int      @default(7)
+  warningPoints              Int      @default(2)
+  reviewPoints               Int      @default(4)
+  kickPoints                 Int      @default(6)
+  warningMessage             String   @default("Please follow the group rules.")
+  adminNotifyLineIds         String[] @default([])
+  adminNotifyTelegramChatIds  String[] @default([])
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+model GroupSetting {
+  id                        String   @id @default(cuid())
+  groupId                   String   @unique
+  group                     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  autoEnforcement           Boolean  @default(true)
+  aiEnabled                 Boolean  @default(true)
+  blacklistFilteringEnabled  Boolean  @default(true)
+  spamDetectionEnabled      Boolean  @default(true)
+  welcomeEnabled            Boolean  @default(false)
+  announcementEnabled       Boolean  @default(false)
+  keywordAutoReplyEnabled    Boolean  @default(false)
+  lotteryEnabled            Boolean  @default(false)
+  missionEnabled            Boolean  @default(false)
+  checkinEnabled            Boolean  @default(false)
+  rankingEnabled            Boolean  @default(false)
+  violationThreshold        Int      @default(3)
+  spamWindowSeconds         Int      @default(10)
+  spamMaxMessages           Int      @default(5)
+  pushToGroup               Boolean  @default(false)
+  notifyAdmins              Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model Member {
+  id                    String          @id @default(cuid())
+  groupId               String
+  group                 Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId                String
+  displayName           String?
+  joinedAt              DateTime        @default(now())
+  messageCount          Int             @default(0)
+  violationCount        Int             @default(0)
+  riskScore             Float           @default(0)
+  activeScore           Int             @default(0)
+  checkinCount          Int             @default(0)
+  missionCompletedCount Int             @default(0)
+  note                  String?
+  isBlacklisted         Boolean         @default(false)
+  isWhitelisted         Boolean         @default(false)
+  lastMessageAt         DateTime?
+  lastCheckinAt         DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  stats                 MemberStats?
+  notifications         Notification[]
+  checkins              Checkin[]
+  missionProgress       MissionProgress[]
+  lotteryEntries        LotteryEntry[]
+  lotteryWins           LotteryWinner[]
+  rankings              Ranking[]
+  operationLogs         OperationLog[]
+
+  @@unique([groupId, userId])
+  @@index([groupId, userId])
+}
+
+model MemberStats {
+  id                String   @id @default(cuid())
+  groupId           String
+  group             Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  memberId          String   @unique
+  member            Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  currentStreak     Int      @default(0)
+  totalActiveScore  Int      @default(0)
+  totalMessages     Int      @default(0)
+  totalViolations   Int      @default(0)
+  totalCheckins     Int      @default(0)
+  totalMissions     Int      @default(0)
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
 }
 
 model MessageLog {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   groupId      String
-  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group        Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   lineGroupId  String
   lineUserId   String
-  content      String?  @db.Text
-  messageType  String   @default("text")
+  content      String?      @db.Text
+  messageType  String       @default("text")
   raw          Json
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
   violations   Violation[]
   aiAssessment AiAssessment?
 }
 
 model Violation {
-  id            String          @id @default(cuid())
+  id            String           @id @default(cuid())
   groupId       String
-  group         Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group         Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
   messageLogId  String?
-  messageLog    MessageLog?     @relation(fields: [messageLogId], references: [id], onDelete: SetNull)
+  messageLog    MessageLog?      @relation(fields: [messageLogId], references: [id], onDelete: SetNull)
   lineUserId    String
   lineGroupId   String
   ruleType      RuleType
@@ -131,18 +289,18 @@ model Violation {
 }
 
 model AiAssessment {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   groupId      String
-  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  messageLogId String   @unique
-  messageLog   MessageLog @relation(fields: [messageLogId], references: [id], onDelete: Cascade)
+  group        Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  messageLogId String      @unique
+  messageLog   MessageLog  @relation(fields: [messageLogId], references: [id], onDelete: Cascade)
   lineUserId   String
   riskScore    Float
   category     String
-  reason       String   @db.Text
+  reason       String      @db.Text
   confidence   Float
   raw          Json
-  createdAt    DateTime @default(now())
+  createdAt    DateTime    @default(now())
 }
 
 model BlacklistEntry {
@@ -183,4 +341,231 @@ model PendingAction {
   status       String   @default("PENDING")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model OperationLog {
+  id          String         @id @default(cuid())
+  adminUserId String?
+  adminUser   AdminUser?     @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  groupId     String?
+  group       Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  memberId    String?
+  member      Member?        @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  eventType   OperationType
+  title       String
+  detail      String?        @db.Text
+  meta        Json?
+  createdAt   DateTime       @default(now())
+
+  @@index([createdAt])
+  @@index([eventType])
+  @@index([groupId])
+  @@index([adminUserId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  groupId     String?
+  group       Group?           @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  memberId    String?
+  member      Member?          @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  type        NotificationType
+  title       String
+  content     String           @db.Text
+  meta        Json?
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([isRead, createdAt])
+  @@index([groupId])
+  @@index([type])
+}
+
+model WelcomeSetting {
+  id               String   @id @default(cuid())
+  groupId          String   @unique
+  group            Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  enabled          Boolean  @default(false)
+  welcomeMessage   String   @db.Text
+  groupRulesMessage String  @db.Text
+  flexTemplate     Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Announcement {
+  id            String         @id @default(cuid())
+  groupId       String
+  group         Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title         String
+  content       String         @db.Text
+  flexMessage    Json?
+  scheduleType  ScheduleType   @default(ONCE)
+  targetGroupIds String[]       @default([])
+  startAt       DateTime?
+  endAt         DateTime?
+  nextRunAt     DateTime?
+  lastSentAt    DateTime?
+  sendCount     Int            @default(0)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  jobs          AnnouncementJob[]
+}
+
+model AnnouncementJob {
+  id             String        @id @default(cuid())
+  announcementId String
+  announcement   Announcement  @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  runAt          DateTime
+  sentAt         DateTime?
+  status         String        @default("PENDING")
+  error          String?       @db.Text
+  result         Json?
+  createdAt      DateTime      @default(now())
+
+  @@index([status, runAt])
+}
+
+model AutoReplyRule {
+  id             String       @id @default(cuid())
+  groupId        String
+  group          Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  keyword        String
+  matchType      MatchType    @default(CONTAINS)
+  responseType   ResponseType @default(TEXT)
+  responseText   String       @db.Text
+  responseFlex   Json?
+  cooldownSeconds Int         @default(0)
+  hitCount       Int          @default(0)
+  lastHitAt      DateTime?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([groupId, keyword])
+}
+
+model Checkin {
+  id            String   @id @default(cuid())
+  groupId       String
+  group         Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  memberId      String
+  member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  lineUserId    String
+  checkinDate   DateTime
+  streakDays    Int      @default(1)
+  pointsEarned  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([groupId, lineUserId, checkinDate])
+  @@index([groupId, checkinDate])
+}
+
+model Mission {
+  id          String      @id @default(cuid())
+  groupId     String
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title       String
+  description String?     @db.Text
+  missionType MissionType
+  targetCount Int         @default(1)
+  keyword     String?
+  pointsReward Int        @default(0)
+  startAt     DateTime?
+  dueAt       DateTime?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  progress    MissionProgress[]
+}
+
+model MissionProgress {
+  id               String   @id @default(cuid())
+  missionId        String
+  mission          Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  memberId         String
+  member           Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  currentCount     Int      @default(0)
+  targetCount      Int      @default(0)
+  isCompleted      Boolean  @default(false)
+  completedAt      DateTime?
+  lastProgressAt   DateTime?
+  progressMeta     Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([missionId, memberId])
+  @@index([memberId, isCompleted])
+}
+
+model Lottery {
+  id           String         @id @default(cuid())
+  groupId      String
+  group        Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?        @db.Text
+  startAt      DateTime?
+  endAt        DateTime?
+  quota        Int            @default(0)
+  maxWinners   Int            @default(1)
+  isActive     Boolean        @default(true)
+  autoDrawAt   DateTime?
+  drawnAt      DateTime?
+  status       LotteryStatus  @default(DRAFT)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  entries      LotteryEntry[]
+  winners      LotteryWinner[]
+}
+
+model LotteryEntry {
+  id          String    @id @default(cuid())
+  lotteryId   String
+  lottery     Lottery   @relation(fields: [lotteryId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  lineUserId   String
+  ticketCount  Int      @default(1)
+  enteredAt    DateTime @default(now())
+
+  @@unique([lotteryId, memberId])
+  @@index([lotteryId, enteredAt])
+}
+
+model LotteryWinner {
+  id          String    @id @default(cuid())
+  lotteryId   String
+  lottery     Lottery   @relation(fields: [lotteryId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  lineUserId  String
+  rank        Int
+  wonAt       DateTime  @default(now())
+  prizeText   String?
+
+  @@unique([lotteryId, memberId])
+  @@index([lotteryId, rank])
+}
+
+model Ranking {
+  id           String         @id @default(cuid())
+  groupId      String
+  group        Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  memberId     String
+  member       Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  period       RankingPeriod
+  periodKey    String
+  activeScore  Int            @default(0)
+  messageCount Int            @default(0)
+  checkinCount Int            @default(0)
+  missionCount Int            @default(0)
+  lotteryCount Int            @default(0)
+  rankPosition Int            @default(0)
+  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime       @default(now())
+
+  @@unique([groupId, period, periodKey, memberId])
+  @@index([groupId, period, periodKey, rankPosition])
 }

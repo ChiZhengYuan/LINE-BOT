@@ -165,3 +165,148 @@ API:
 Frontend:
 
 - `NEXT_PUBLIC_API_BASE_URL`
+
+## New Modules Added
+
+The project now extends the existing LINE Group Manager architecture with the following modules:
+
+### Group Settings Center
+
+- Group-level switches for:
+  - auto enforcement
+  - AI moderation
+  - blacklist filtering
+  - spam detection
+  - welcome message
+  - scheduled announcements
+  - keyword auto-reply
+  - lottery
+  - missions
+  - daily check-ins
+  - rankings
+- Per-group thresholds for violation score and spam detection
+- Operation logging for every settings change
+
+### Members
+
+- Member list and detail pages
+- Search, filter, sort, and pagination
+- Manual blacklist / whitelist toggle
+- Notes per member
+
+### Operation Logs
+
+- Track login, moderation actions, settings changes, announcements, lotteries, missions, auto-replies, and check-ins
+- Filter by time, admin, group, and event type
+
+### Notifications
+
+- In-app notification center
+- Unread badge in the top bar
+- Mark as read / mark all as read
+- Types include violations, new members, high risk alerts, announcements, lottery results, mission due, system errors, and welcome events
+
+### Welcome Settings
+
+- Welcome message and group rules message
+- Optional Flex Message template
+- Automatic sending when a member joins
+
+### Announcements
+
+- One-time, daily, weekly, and monthly scheduled announcements
+- Target one or more groups
+- Preview, edit, delete, and send now
+
+### Auto Reply Rules
+
+- Exact match, contains match, and regex match
+- Text or Flex response
+- Cooldown support
+- Hit count tracking
+
+### Community Interaction
+
+- Daily check-ins
+- Missions
+- Lotteries
+- Rankings based on active score
+
+## Important Notes
+
+- The frontend is mobile-friendly and uses the same visual style as the existing dashboard, violations, lists, and AI pages.
+- All new modules persist to PostgreSQL through Prisma.
+- The backend uses service and route layers, with Zod validation on the new endpoints.
+- Notifications can be surfaced in LINE, Telegram, and the in-app notification center.
+- If you are using Render, the API service will run `prisma db push` before startup so the schema stays synchronized.
+
+## New API Routes
+
+- `GET /api/members`
+- `GET /api/members/:memberId`
+- `POST /api/members`
+- `PATCH /api/members/:memberId`
+- `GET /api/operation-logs`
+- `GET /api/notifications`
+- `GET /api/notifications/unread-count`
+- `POST /api/notifications/:notificationId/read`
+- `POST /api/notifications/read-all`
+- `GET /api/welcome/groups/:groupId`
+- `PUT /api/welcome/groups/:groupId`
+- `GET /api/announcements`
+- `POST /api/announcements`
+- `GET /api/announcements/:announcementId`
+- `PATCH /api/announcements/:announcementId`
+- `DELETE /api/announcements/:announcementId`
+- `POST /api/announcements/:announcementId/send`
+- `GET /api/auto-replies`
+- `GET /api/auto-replies/groups/:groupId`
+- `POST /api/auto-replies`
+- `PATCH /api/auto-replies/:ruleId`
+- `DELETE /api/auto-replies/:ruleId`
+- `GET /api/checkins`
+- `POST /api/checkins`
+- `GET /api/missions`
+- `POST /api/missions`
+- `PATCH /api/missions/:missionId`
+- `DELETE /api/missions/:missionId`
+- `POST /api/missions/:missionId/progress`
+- `GET /api/lotteries`
+- `POST /api/lotteries`
+- `PATCH /api/lotteries/:lotteryId`
+- `DELETE /api/lotteries/:lotteryId`
+- `POST /api/lotteries/:lotteryId/enter`
+- `POST /api/lotteries/:lotteryId/draw`
+- `GET /api/rankings`
+- `GET /api/dashboard/overview`
+
+## Prisma Models Added
+
+- `GroupSetting`
+- `Member`
+- `MemberStats`
+- `OperationLog`
+- `Notification`
+- `WelcomeSetting`
+- `Announcement`
+- `AnnouncementJob`
+- `AutoReplyRule`
+- `Checkin`
+- `Mission`
+- `MissionProgress`
+- `Lottery`
+- `LotteryEntry`
+- `LotteryWinner`
+- `Ranking`
+
+## Migration / Sync
+
+To sync the schema locally:
+
+```bash
+npm run prisma:validate --workspace @line-group-manager/api
+npm run prisma:generate --workspace @line-group-manager/api
+npm run prisma:push --workspace @line-group-manager/api
+```
+
+If your local `DATABASE_URL` points to a remote Render database, `prisma db push` may fail from your PC because the database host is not reachable from your local network. In that case, run the push from the deployed environment or use an accessible database connection string.

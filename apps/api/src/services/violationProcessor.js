@@ -3,6 +3,7 @@ import { env } from "../config/env.js";
 import { pushText } from "./line.js";
 import { sendTelegramMessage } from "./telegram.js";
 import { getTelegramSettings } from "./telegramSettings.js";
+import { createNotification, logOperation, rebuildRankingsForGroup } from "./activity.js";
 
 export async function recordViolation({ group, messageLog, lineUserId, analysis }) {
   const created = [];
@@ -39,6 +40,35 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis 
     }
   });
 
+  await prisma.member.updateMany({
+    where: { groupId: group.id, userId: lineUserId },
+    data: {
+      violationCount: { increment: created.length },
+      riskScore: { increment: analysis.aiAssessment.riskScore || 0 },
+      activeScore: { increment: Math.max(0, 10 - created.length) }
+    }
+  });
+
+  await createNotification({
+    groupId: group.id,
+    type: "VIOLATION",
+    title: "新違規事件",
+    content: `${group.name || group.lineGroupId} 觸發 ${analysis.matches.length} 筆違規`,
+    meta: {
+      lineUserId,
+      actionTaken: analysis.actionTaken,
+      status: analysis.status
+    }
+  });
+
+  await logOperation({
+    groupId: group.id,
+    memberId: null,
+    eventType: "VIOLATION_REVIEWED",
+    title: "記錄違規",
+    detail: `${lineUserId} | ${analysis.aiAssessment.reason}`
+  });
+
   if (analysis.actionTaken !== "NONE") {
     const notice = buildGroupNotice(group, analysis);
     if (notice) {
@@ -50,7 +80,7 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis 
     }
   }
 
-  if (analysis.actionTaken === "ADMIN_NOTIFY") {
+  if (analysis.actionTaken === "ADMIN_NOTIFY" || analysis.actionTaken === "PENDING_KICK" || analysis.actionTaken === "KICKED") {
     const targets = (analysis.setting.adminNotifyLineIds || []).length
       ? analysis.setting.adminNotifyLineIds
       : env.lineAdminUserIds;
@@ -77,15 +107,17 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis 
     }
   }
 
+  await rebuildRankingsForGroup(group.id).catch(() => {});
+
   return created;
 }
 
 function buildGroupNotice(group, analysis) {
   const titleMap = {
     WARNING: "⚠️ 已觸發警告",
-    ADMIN_NOTIFY: "📣 已通知管理員",
-    PENDING_KICK: "🧾 已加入待踢清單",
-    KICKED: "⛔ 已執行踢出處置"
+    ADMIN_NOTIFY: "📣 需要管理員注意",
+    PENDING_KICK: "⏳ 已加入待踢清單",
+    KICKED: "🛑 已執行踢出"
   };
 
   const title = titleMap[analysis.actionTaken];
@@ -107,13 +139,13 @@ function buildGroupNotice(group, analysis) {
 
 function buildAdminNotice(group, analysis) {
   const titleMap = {
-    WARNING: "⚠️ 群組發現違規內容",
-    ADMIN_NOTIFY: "📣 群組需要管理員注意",
-    PENDING_KICK: "🧾 群組待踢清單更新",
-    KICKED: "⛔ 群組已執行踢出處置"
+    WARNING: "⚠️ 群組觸發警告",
+    ADMIN_NOTIFY: "📣 群組需要管理員處理",
+    PENDING_KICK: "⏳ 群組已進入待踢流程",
+    KICKED: "🛑 群組已執行踢出"
   };
 
-  const title = titleMap[analysis.actionTaken] || "📌 群組通知";
+  const title = titleMap[analysis.actionTaken] || "📣 群組通知";
   const lines = [title];
   if (group?.name) {
     lines.push(`群組：${group.name}`);
@@ -126,10 +158,10 @@ function buildAdminNotice(group, analysis) {
 
 function formatRule(ruleType) {
   const map = {
-    URL: "網址保護",
+    URL: "網址",
     INVITE: "邀請連結",
-    BLACKLIST: "黑名單詞",
-    SPAM: "洗版偵測",
+    BLACKLIST: "黑名單",
+    SPAM: "洗版",
     AI: "AI 判斷"
   };
   return map[ruleType] || ruleType || "未知規則";
@@ -138,7 +170,7 @@ function formatRule(ruleType) {
 function formatStatus(status) {
   const map = {
     FLAGGED: "已標記",
-    REVIEWED: "待審",
+    REVIEWED: "已審核",
     ESCALATED: "已升級",
     KICK_PENDING: "待踢",
     RESOLVED: "已處理"

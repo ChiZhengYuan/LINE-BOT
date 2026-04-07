@@ -7,6 +7,7 @@
     "prestart": "npm run prisma:push",
     "start": "node src/index.js",
     "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js"
@@ -20,6 +21,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "prisma": "^6.6.0",
-    "redis": "^5.8.2"
+    "redis": "^5.8.2",
+    "zod": "^4.3.6"
   }
 }

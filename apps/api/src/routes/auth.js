@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
+import { logOperation } from "../services/activity.js";
 
 export const authRouter = express.Router();
 
@@ -41,6 +42,13 @@ authRouter.post("/login", async (req, res, next) => {
         role: user.role
       }
     });
+
+    await logOperation({
+      adminUserId: user.id,
+      eventType: "LOGIN",
+      title: "管理員登入",
+      detail: `${user.email} 已登入`
+    }).catch(() => {});
   } catch (error) {
     next(error);
   }
