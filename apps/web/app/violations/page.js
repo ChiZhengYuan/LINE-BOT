@@ -22,6 +22,9 @@ export default function ViolationsPage() {
   const [rows, setRows] = useState([]);
   const [groups, setGroups] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState("");
+  const [error, setError] = useState("");
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -32,12 +35,21 @@ export default function ViolationsPage() {
   }, [filters]);
 
   const load = async () => {
-    const [violationsRes, groupsRes] = await Promise.all([
-      apiFetch(`/violations${query ? `?${query}` : ""}`),
-      apiFetch("/groups")
-    ]);
-    setRows(violationsRes.violations || []);
-    setGroups(groupsRes.groups || []);
+    setLoading(true);
+    setError("");
+    try {
+      const [violationsRes, groupsRes] = await Promise.all([
+        apiFetch(`/violations${query ? `?${query}` : ""}`),
+        apiFetch("/groups")
+      ]);
+      setRows(violationsRes.violations || []);
+      setGroups(groupsRes.groups || []);
+    } catch (err) {
+      setError(err.message || "無法載入違規紀錄");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -72,8 +84,15 @@ export default function ViolationsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const copyUserId = async (userId) => {
+    if (!userId) return;
+    await navigator.clipboard.writeText(userId);
+    setCopied(userId);
+    window.setTimeout(() => setCopied(""), 1200);
+  };
+
   return (
-    <Shell title="違規紀錄" subtitle="搜尋、篩選與匯出所有違規事件">
+    <Shell title="違規紀錄" subtitle="這裡會顯示觸發規則的訊息、發言者 userId，旁邊可以直接複製。">
       <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
         <div className="grid gap-4 lg:grid-cols-4">
           <SelectField label="群組" value={filters.groupId} onChange={(value) => setFilters({ ...filters, groupId: value })}>
@@ -85,7 +104,7 @@ export default function ViolationsPage() {
             ))}
           </SelectField>
           <TextField label="LINE Group ID" value={filters.lineGroupId} onChange={(value) => setFilters({ ...filters, lineGroupId: value })} />
-          <TextField label="User ID" value={filters.lineUserId} onChange={(value) => setFilters({ ...filters, lineUserId: value })} />
+          <TextField label="LINE User ID" value={filters.lineUserId} onChange={(value) => setFilters({ ...filters, lineUserId: value })} />
           <TextField label="關鍵字" value={filters.q} onChange={(value) => setFilters({ ...filters, q: value })} />
           <SelectField label="規則類型" value={filters.ruleType} onChange={(value) => setFilters({ ...filters, ruleType: value })}>
             <option value="">全部</option>
@@ -103,7 +122,7 @@ export default function ViolationsPage() {
             <option value="KICK_PENDING">KICK_PENDING</option>
             <option value="RESOLVED">RESOLVED</option>
           </SelectField>
-          <SelectField label="處置" value={filters.actionTaken} onChange={(value) => setFilters({ ...filters, actionTaken: value })}>
+          <SelectField label="動作" value={filters.actionTaken} onChange={(value) => setFilters({ ...filters, actionTaken: value })}>
             <option value="">全部</option>
             <option value="NONE">NONE</option>
             <option value="WARNING">WARNING</option>
@@ -112,61 +131,99 @@ export default function ViolationsPage() {
             <option value="PENDING_KICK">PENDING_KICK</option>
             <option value="KICKED">KICKED</option>
           </SelectField>
-          <TextField label="起始日" type="date" value={filters.from} onChange={(value) => setFilters({ ...filters, from: value })} />
-          <TextField label="結束日" type="date" value={filters.to} onChange={(value) => setFilters({ ...filters, to: value })} />
+          <TextField label="起始日期" type="date" value={filters.from} onChange={(value) => setFilters({ ...filters, from: value })} />
+          <TextField label="結束日期" type="date" value={filters.to} onChange={(value) => setFilters({ ...filters, to: value })} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            onClick={() => setFilters(emptyFilters)}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
-          >
-            清除篩選
+          <button onClick={() => setFilters(emptyFilters)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+            清除條件
           </button>
-          <button
-            onClick={load}
-            className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950"
-          >
+          <button onClick={load} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">
             重新載入
           </button>
-          <button
-            onClick={exportCsv}
-            className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"
-          >
+          <button onClick={exportCsv} className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
             匯出 CSV
           </button>
         </div>
       </div>
 
+      {error ? (
+        <div className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          {error}
+        </div>
+      ) : null}
+
       <div className="mt-6 space-y-4">
-        {rows.map((item) => (
-          <article key={item.id} className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="rounded-full bg-cyan-400/15 px-3 py-1 text-cyan-200">{item.ruleType}</span>
-              <span className="text-slate-400">{new Date(item.createdAt).toLocaleString()}</span>
-              <span className="text-slate-400">{item.group?.lineGroupId}</span>
-              <span className="text-slate-400">{item.lineUserId}</span>
-            </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div>
-                <div className="text-sm text-slate-400">原因</div>
-                <div className="mt-1 text-base">{item.reason}</div>
-                <div className="mt-3 text-sm text-slate-400">
-                  {item.messageLog?.content || "無內容"}
+        {loading ? <LoadingCard /> : null}
+
+        {rows.map((item) => {
+          const userId = item.lineUserId || "";
+          const isCopied = copied === userId;
+
+          return (
+            <article key={item.id} className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <Badge tone="cyan">{item.ruleType}</Badge>
+                <span className="text-slate-400">{formatTime(item.createdAt)}</span>
+                <span className="text-slate-500">{item.group?.name || item.group?.lineGroupId || "未命名群組"}</span>
+                <span className="font-mono text-xs text-slate-300">{item.lineGroupId}</span>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-500">發言者 userId</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <code className="break-all rounded-xl bg-black/30 px-3 py-2 font-mono text-sm text-cyan-100">{userId || "未知"}</code>
+                      <button
+                        onClick={() => copyUserId(userId)}
+                        disabled={!userId}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isCopied ? "已複製" : "複製"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-slate-400">原因</div>
+                    <div className="mt-1 text-base text-slate-100">{item.reason}</div>
+                  </div>
+
+                  <div className="text-sm text-slate-400">
+                    訊息內容
+                    <div className="mt-2 rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-slate-200">
+                      {item.messageLog?.content || "無內容"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Metric label="分數" value={item.points} />
+                  <Metric label="風險分數" value={Math.round(item.riskScore || 0)} />
+                  <Metric label="狀態" value={item.status} />
+                  <Metric label="分類" value={item.category || "-"} />
+                  <Metric label="信心值" value={formatConfidence(item.confidence)} />
+                  <Metric label="動作" value={item.actionTaken || "NONE"} />
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Metric label="分數" value={item.points} />
-                <Metric label="風險" value={Math.round(item.riskScore)} />
-                <Metric label="狀態" value={item.status} />
-              </div>
-            </div>
-          </article>
-        ))}
-        {rows.length === 0 ? <div className="text-sm text-slate-400">目前沒有符合條件的違規紀錄。</div> : null}
+            </article>
+          );
+        })}
+
+        {!loading && rows.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-8 text-center text-slate-400">
+            目前沒有符合條件的違規紀錄
+          </div>
+        ) : null}
       </div>
     </Shell>
   );
+}
+
+function LoadingCard() {
+  return <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">載入中...</div>;
 }
 
 function TextField({ label, value, onChange, type = "text" }) {
@@ -177,7 +234,7 @@ function TextField({ label, value, onChange, type = "text" }) {
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none ring-0 transition focus:border-cyan-300/50"
       />
     </label>
   );
@@ -190,7 +247,7 @@ function SelectField({ label, value, onChange, children }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none ring-0 transition focus:border-cyan-300/50"
       >
         {children}
       </select>
@@ -201,8 +258,33 @@ function SelectField({ label, value, onChange, children }) {
 function Metric({ label, value }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className="mt-2 break-all text-xl font-semibold">{value}</div>
+      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</div>
+      <div className="mt-2 break-all text-lg font-semibold text-slate-100">{value}</div>
     </div>
   );
+}
+
+function Badge({ tone = "cyan", children }) {
+  const tones = {
+    cyan: "border-cyan-300/20 bg-cyan-500/10 text-cyan-100",
+    emerald: "border-emerald-300/20 bg-emerald-500/10 text-emerald-100",
+    rose: "border-rose-300/20 bg-rose-500/10 text-rose-100"
+  };
+
+  return <span className={`rounded-full border px-3 py-1 text-xs font-medium ${tones[tone]}`}>{children}</span>;
+}
+
+function formatTime(value) {
+  try {
+    return new Date(value).toLocaleString("zh-TW");
+  } catch {
+    return "";
+  }
+}
+
+function formatConfidence(value) {
+  if (value === null || value === undefined) return "-";
+  const number = Number(value);
+  if (Number.isNaN(number)) return String(value);
+  return `${Math.round(number * 100)}%`;
 }
