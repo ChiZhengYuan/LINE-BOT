@@ -152,7 +152,7 @@ export function Shell({ children, title, subtitle }) {
                   className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-900"
                   aria-label="??????"
                 >
-                  ??
+                  <span aria-hidden="true">🔔</span>
                   {mounted && unreadCount > 0 ? (
                     <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
