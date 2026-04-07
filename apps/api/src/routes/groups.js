@@ -5,6 +5,8 @@ import { requireRole } from "../middleware/roles.js";
 
 export const groupsRouter = express.Router();
 
+const DEFAULT_WARNING_MESSAGE = "請注意群組規範，請勿發送違規內容。";
+
 groupsRouter.get("/", requireAuth, async (req, res) => {
   const groups = await prisma.group.findMany({
     orderBy: { updatedAt: "desc" },
@@ -41,7 +43,8 @@ groupsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req,
       ruleSetting: {
         create: {
           protectUrl: payload.protectUrl ?? true,
-          protectInvite: payload.protectInvite ?? true
+          protectInvite: payload.protectInvite ?? true,
+          warningMessage: payload.warningMessage || DEFAULT_WARNING_MESSAGE
         }
       }
     },
@@ -58,6 +61,10 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
       ruleSetting: true,
       blacklistEntries: true,
       whitelistEntries: true,
+      pendingActions: {
+        orderBy: { createdAt: "desc" },
+        take: 1
+      },
       _count: {
         select: {
           violations: true,
@@ -78,13 +85,15 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
 
 groupsRouter.patch("/:groupId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
   const payload = req.body || {};
+  const data = {};
+
+  if (typeof payload.lineGroupId === "string") data.lineGroupId = payload.lineGroupId;
+  if (typeof payload.name === "string") data.name = payload.name;
+  if (typeof payload.isActive === "boolean") data.isActive = payload.isActive;
+
   const group = await prisma.group.update({
     where: { id: req.params.groupId },
-    data: {
-      lineGroupId: payload.lineGroupId,
-      name: payload.name,
-      isActive: payload.isActive
-    }
+    data
   });
 
   res.json({ group });
@@ -107,6 +116,7 @@ groupsRouter.put("/:groupId/rules", requireAuth, requireRole("ADMIN", "MANAGER")
   const current = await prisma.ruleSetting.findUnique({
     where: { groupId: req.params.groupId }
   });
+
   const rule = await prisma.ruleSetting.upsert({
     where: { groupId: req.params.groupId },
     update: {
@@ -121,9 +131,11 @@ groupsRouter.put("/:groupId/rules", requireAuth, requireRole("ADMIN", "MANAGER")
       warningPoints: Number(payload.warningPoints ?? current?.warningPoints ?? 2),
       reviewPoints: Number(payload.reviewPoints ?? current?.reviewPoints ?? 4),
       kickPoints: Number(payload.kickPoints ?? current?.kickPoints ?? 6),
-      warningMessage: payload.warningMessage ?? current?.warningMessage ?? "請注意，您的訊息已違反群組規則。",
+      warningMessage: payload.warningMessage ?? current?.warningMessage ?? DEFAULT_WARNING_MESSAGE,
       adminNotifyLineIds: Array.isArray(payload.adminNotifyLineIds) ? payload.adminNotifyLineIds : current?.adminNotifyLineIds || [],
-      adminNotifyTelegramChatIds: Array.isArray(payload.adminNotifyTelegramChatIds) ? payload.adminNotifyTelegramChatIds : current?.adminNotifyTelegramChatIds || []
+      adminNotifyTelegramChatIds: Array.isArray(payload.adminNotifyTelegramChatIds)
+        ? payload.adminNotifyTelegramChatIds
+        : current?.adminNotifyTelegramChatIds || []
     },
     create: {
       groupId: req.params.groupId,
@@ -138,7 +150,7 @@ groupsRouter.put("/:groupId/rules", requireAuth, requireRole("ADMIN", "MANAGER")
       warningPoints: Number(payload.warningPoints ?? 2),
       reviewPoints: Number(payload.reviewPoints ?? 4),
       kickPoints: Number(payload.kickPoints ?? 6),
-      warningMessage: payload.warningMessage || "請注意，您的訊息已違反群組規則。",
+      warningMessage: payload.warningMessage || DEFAULT_WARNING_MESSAGE,
       adminNotifyLineIds: Array.isArray(payload.adminNotifyLineIds) ? payload.adminNotifyLineIds : [],
       adminNotifyTelegramChatIds: Array.isArray(payload.adminNotifyTelegramChatIds) ? payload.adminNotifyTelegramChatIds : []
     }

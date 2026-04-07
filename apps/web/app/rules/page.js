@@ -1,196 +1,473 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, getToken } from "../../lib/api";
+import { apiFetch, getToken, getUser } from "../../lib/api";
 import { Shell } from "../../components/Shell";
+
+const defaultRule = {
+  protectUrl: true,
+  protectInvite: true,
+  blacklistWords: [],
+  spamWindowSeconds: 10,
+  spamMaxMessages: 5,
+  warningThreshold: 3,
+  reviewThreshold: 5,
+  kickThreshold: 7,
+  warningPoints: 2,
+  reviewPoints: 4,
+  kickPoints: 6,
+  warningMessage: "請注意群組規範，請勿發送違規內容。",
+  adminNotifyLineIds: [],
+  adminNotifyTelegramChatIds: []
+};
 
 export default function RulesPage() {
   const router = useRouter();
-  const [groupId, setGroupId] = useState("");
-  const [rule, setRule] = useState({
-    protectUrl: true,
-    protectInvite: true,
-    blacklistWords: [],
-    spamWindowSeconds: 10,
-    spamMaxMessages: 5,
-    warningThreshold: 3,
-    reviewThreshold: 5,
-    kickThreshold: 7,
-    warningPoints: 2,
-    reviewPoints: 4,
-    kickPoints: 6,
-    warningMessage: "請注意群組規範，請勿發送違規內容。",
-    adminNotifyLineIds: [],
-    adminNotifyTelegramChatIds: []
-  });
+  const user = getUser();
+  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const [groups, setGroups] = useState([]);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [rule, setRule] = useState(defaultRule);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+  const [loadingRule, setLoadingRule] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const activeGroupCount = useMemo(() => groups.filter((group) => group.isActive).length, [groups]);
 
   useEffect(() => {
     if (!getToken()) {
       router.replace("/login");
+      return;
     }
+
+    loadGroups().catch(() => router.replace("/login"));
   }, [router]);
 
-  const load = async () => {
-    const data = await apiFetch(`/groups/${groupId}/rules`);
-    if (data.rule) {
-      setRule({
-        ...data.rule,
-        blacklistWords: data.rule.blacklistWords || [],
-        adminNotifyLineIds: data.rule.adminNotifyLineIds || [],
-        adminNotifyTelegramChatIds: data.rule.adminNotifyTelegramChatIds || []
-      });
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setSelectedGroup(null);
+      setRule(defaultRule);
+      return;
+    }
+
+    loadRule(selectedGroupId).catch(() => {});
+  }, [selectedGroupId]);
+
+  const loadGroups = async () => {
+    setLoadingGroups(true);
+    setError("");
+    try {
+      const result = await apiFetch("/groups");
+      const nextGroups = result.groups || [];
+      setGroups(nextGroups);
+      if (!selectedGroupId && nextGroups.length > 0) {
+        setSelectedGroupId(nextGroups[0].id);
+      }
+    } catch (err) {
+      setError(err.message || "無法載入群組清單");
+      throw err;
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  const loadRule = async (groupId) => {
+    setLoadingRule(true);
+    setError("");
+    try {
+      const [groupResult, ruleResult] = await Promise.all([
+        apiFetch(`/groups/${groupId}`),
+        apiFetch(`/groups/${groupId}/rules`)
+      ]);
+
+      setSelectedGroup(groupResult.group || null);
+      setRule(mergeRule(ruleResult.rule));
+    } catch (err) {
+      setError(err.message || "無法載入規則設定");
+      throw err;
+    } finally {
+      setLoadingRule(false);
     }
   };
 
   const save = async (event) => {
     event.preventDefault();
-    await apiFetch(`/groups/${groupId}/rules`, {
-      method: "PUT",
-      body: JSON.stringify(rule)
-    });
+    if (!selectedGroupId) {
+      setError("請先選擇群組");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await apiFetch(`/groups/${selectedGroupId}/rules`, {
+        method: "PUT",
+        body: JSON.stringify(normalizeRule(rule))
+      });
+      setSuccess("規則已儲存");
+      await loadRule(selectedGroupId);
+    } catch (err) {
+      setError(err.message || "儲存規則失敗");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const setArrayField = (field, value) => {
+  const updateArrayField = (field, value) => {
     setRule((current) => ({
       ...current,
-      [field]: value.split(",").map((item) => item.trim()).filter(Boolean)
+      [field]: value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
     }));
   };
 
   return (
     <Shell
       title="規則設定"
-      subtitle="控制網址、邀請連結、黑名單詞與洗版門檻。下方通知欄位請分清楚是 User ID / Chat ID，不是 token。"
+      subtitle="先選群組，再調整網址、邀請、黑名單、洗版與通知門檻。載入失敗時，頁面會直接顯示錯誤訊息。"
     >
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
-        <div className="flex flex-col gap-3 lg:flex-row">
-          <input
-            value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
-            placeholder="請輸入 Group ID"
-            className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-          />
-          <button onClick={load} className="rounded-2xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950">
-            載入規則
-          </button>
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard label="群組總數" value={groups.length} hint="目前可設定的群組" />
+        <StatCard label="啟用中" value={activeGroupCount} hint="正在接收訊息判斷的群組" />
+        <StatCard label="目前選擇" value={selectedGroup ? "已載入" : "未選擇"} hint="先從下拉選群組" />
+      </div>
+
+      {error ? (
+        <div className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          {error}
+        </div>
+      ) : null}
+
+      {success ? (
+        <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          {success}
+        </div>
+      ) : null}
+
+      <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex-1">
+            <label className="block text-sm text-slate-300">
+              選擇群組
+              <select
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none ring-0 transition focus:border-cyan-300/50"
+                disabled={loadingGroups || groups.length === 0}
+              >
+                <option value="">請先選擇群組</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name || "未命名群組"} · {group.lineGroupId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-2 text-xs text-slate-500">
+              如果群組還沒出現在清單，請先讓該群組發一則訊息，或到群組管理頁確認是否已建立。
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => loadGroups()}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 transition hover:bg-white/10"
+            >
+              重新載入群組
+            </button>
+            <button
+              type="button"
+              onClick={() => selectedGroupId && loadRule(selectedGroupId)}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 transition hover:bg-white/10"
+              disabled={!selectedGroupId}
+            >
+              重新載入規則
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+          {loadingRule ? (
+            <div className="text-sm text-slate-400">規則載入中...</div>
+          ) : selectedGroup ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              <Info label="群組名稱" value={selectedGroup.name || "未命名群組"} />
+              <Info label="LINE Group ID" value={selectedGroup.lineGroupId} mono />
+              <Info label="群組狀態" value={selectedGroup.isActive ? "開啟" : "停用"} tone={selectedGroup.isActive ? "emerald" : "rose"} />
+            </div>
+          ) : (
+            <div className="text-sm text-slate-400">先選擇群組，這裡會顯示目前規則與狀態。</div>
+          )}
         </div>
 
         <form onSubmit={save} className="mt-6 grid gap-4 lg:grid-cols-2">
-          <Toggle label="網址保護" checked={rule.protectUrl} onChange={(checked) => setRule({ ...rule, protectUrl: checked })} />
-          <Toggle label="邀請連結保護" checked={rule.protectInvite} onChange={(checked) => setRule({ ...rule, protectInvite: checked })} />
+          <Toggle
+            label="網址保護"
+            description="偵測常見網址與短網址。"
+            checked={rule.protectUrl}
+            onChange={(checked) => setRule({ ...rule, protectUrl: checked })}
+            disabled={!canWrite}
+          />
+          <Toggle
+            label="邀請連結保護"
+            description="偵測 LINE 群組邀請連結。"
+            checked={rule.protectInvite}
+            onChange={(checked) => setRule({ ...rule, protectInvite: checked })}
+            disabled={!canWrite}
+          />
 
           <Field
-            label="黑名單詞（逗號分隔）"
-            helper="輸入你要攔截的關鍵字或字詞，不是 token。留空代表不使用黑名單詞。"
+            label="黑名單詞"
+            helper="逗號分隔，多個詞會一起生效。空白代表沒有黑名單詞。"
             value={rule.blacklistWords.join(", ")}
-            onChange={(value) => setArrayField("blacklistWords", value)}
+            onChange={(value) => updateArrayField("blacklistWords", value)}
+            placeholder="抽獎, 免運, 加我, 點我"
+            disabled={!canWrite}
           />
+
           <Field
-            label="通知 LINE User IDs（逗號分隔）"
-            helper="這裡填的是 LINE userId，不是 Channel Access Token。"
+            label="警告訊息"
+            helper="當違規達到警告門檻時，會在群內發送這段訊息。"
+            value={rule.warningMessage}
+            onChange={(value) => setRule((current) => ({ ...current, warningMessage: value }))}
+            placeholder="請注意群組規範，請勿發送違規內容。"
+            disabled={!canWrite}
+          />
+
+          <Field
+            label="通知 LINE User IDs"
+            helper="逗號分隔，填 LINE userId，不是 token。"
             value={rule.adminNotifyLineIds.join(", ")}
-            onChange={(value) => setArrayField("adminNotifyLineIds", value)}
+            onChange={(value) => updateArrayField("adminNotifyLineIds", value)}
+            placeholder="Uxxxxxxxxxx, Uyyyyyyyyyy"
+            disabled={!canWrite}
           />
+
           <Field
-            label="通知 Telegram Chat IDs（逗號分隔）"
-            helper="這裡填的是 Telegram chat id，不是 Bot Token。"
+            label="通知 Telegram Chat IDs"
+            helper="逗號分隔，填 Telegram chat id，不是 token。"
             value={rule.adminNotifyTelegramChatIds.join(", ")}
-            onChange={(value) => setArrayField("adminNotifyTelegramChatIds", value)}
+            onChange={(value) => updateArrayField("adminNotifyTelegramChatIds", value)}
+            placeholder="123456789, -1001234567890"
+            disabled={!canWrite}
           />
-          <Field
+
+          <NumberField
             label="洗版秒數"
-            helper="例如 10 秒內重複多次發言就會判定洗版。"
-            type="number"
+            helper="在這段秒數內發太多訊息就視為洗版。"
             value={rule.spamWindowSeconds}
-            onChange={(value) => setRule({ ...rule, spamWindowSeconds: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, spamWindowSeconds: Number(value) }))}
+            min={1}
+            disabled={!canWrite}
           />
-          <Field
+
+          <NumberField
             label="洗版次數"
-            helper="例如 10 秒內超過 5 次。"
-            type="number"
+            helper="在設定秒數內，超過這個訊息數就觸發。"
             value={rule.spamMaxMessages}
-            onChange={(value) => setRule({ ...rule, spamMaxMessages: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, spamMaxMessages: Number(value) }))}
+            min={1}
+            disabled={!canWrite}
           />
-          <Field
+
+          <NumberField
             label="警告門檻"
-            helper="達到這個分數會先警告。"
-            type="number"
+            helper="總分達到後，先群內警告。"
             value={rule.warningThreshold}
-            onChange={(value) => setRule({ ...rule, warningThreshold: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, warningThreshold: Number(value) }))}
+            min={0}
+            disabled={!canWrite}
           />
-          <Field
+
+          <NumberField
             label="待審門檻"
-            helper="達到這個分數會送到後台待審。"
-            type="number"
+            helper="總分達到後，進入待審清單。"
             value={rule.reviewThreshold}
-            onChange={(value) => setRule({ ...rule, reviewThreshold: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, reviewThreshold: Number(value) }))}
+            min={0}
+            disabled={!canWrite}
           />
-          <Field
+
+          <NumberField
             label="待踢門檻"
-            helper="達到這個分數會加入待踢清單。"
-            type="number"
+            helper="總分達到後，加入待踢清單。"
             value={rule.kickThreshold}
-            onChange={(value) => setRule({ ...rule, kickThreshold: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, kickThreshold: Number(value) }))}
+            min={0}
+            disabled={!canWrite}
           />
-          <Field
-            label="警告分數"
-            helper="網址、邀請連結等規則命中時的基礎分數。"
-            type="number"
+
+          <NumberField
+            label="網址分數"
+            helper="網址違規時累加的分數。"
             value={rule.warningPoints}
-            onChange={(value) => setRule({ ...rule, warningPoints: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, warningPoints: Number(value) }))}
+            min={0}
+            disabled={!canWrite}
           />
-          <Field
-            label="待審分數"
-            helper="黑名單詞、較嚴重違規時的分數。"
-            type="number"
+
+          <NumberField
+            label="邀請連結分數"
+            helper="邀請連結違規時累加的分數。"
             value={rule.reviewPoints}
-            onChange={(value) => setRule({ ...rule, reviewPoints: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, reviewPoints: Number(value) }))}
+            min={0}
+            disabled={!canWrite}
           />
-          <Field
-            label="待踢分數"
-            helper="洗版或高風險違規時的分數。"
-            type="number"
+
+          <NumberField
+            label="洗版分數"
+            helper="洗版觸發時累加的分數。"
             value={rule.kickPoints}
-            onChange={(value) => setRule({ ...rule, kickPoints: Number(value) })}
+            onChange={(value) => setRule((current) => ({ ...current, kickPoints: Number(value) }))}
+            min={0}
+            disabled={!canWrite}
           />
 
-          <label className="lg:col-span-2 block text-sm text-slate-300">
-            警告訊息
-            <textarea
-              value={rule.warningMessage}
-              onChange={(e) => setRule({ ...rule, warningMessage: e.target.value })}
-              className="mt-2 min-h-28 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-            />
-          </label>
+          <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-slate-100">通知與分數說明</h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  這些設定會同時影響群內警告、後台標記、管理員通知與待踢清單。
+                </p>
+              </div>
+              <div className="grid gap-2 text-xs text-slate-400 md:grid-cols-2 lg:text-right">
+                <div>警告：群內先提醒</div>
+                <div>待審：進入後台待審清單</div>
+                <div>待踢：進入待踢清單</div>
+                <div>通知：LINE / Telegram 同步</div>
+              </div>
+            </div>
+          </div>
 
-          <button className="rounded-2xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 lg:col-span-2">儲存規則</button>
+          <button
+            disabled={!canWrite || saving || !selectedGroupId}
+            className="rounded-2xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50 lg:col-span-2"
+          >
+            {saving ? "儲存中..." : "儲存規則"}
+          </button>
         </form>
       </div>
     </Shell>
   );
 }
 
-function Toggle({ label, checked, onChange }) {
+function mergeRule(rule) {
+  if (!rule) return defaultRule;
+  return {
+    ...defaultRule,
+    ...rule,
+    blacklistWords: rule.blacklistWords || [],
+    adminNotifyLineIds: rule.adminNotifyLineIds || [],
+    adminNotifyTelegramChatIds: rule.adminNotifyTelegramChatIds || []
+  };
+}
+
+function normalizeRule(rule) {
+  return {
+    ...rule,
+    blacklistWords: Array.isArray(rule.blacklistWords) ? rule.blacklistWords : [],
+    adminNotifyLineIds: Array.isArray(rule.adminNotifyLineIds) ? rule.adminNotifyLineIds : [],
+    adminNotifyTelegramChatIds: Array.isArray(rule.adminNotifyTelegramChatIds) ? rule.adminNotifyTelegramChatIds : []
+  };
+}
+
+function StatCard({ label, value, hint }) {
   return (
-    <label className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm">
-      <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
+      <div className="text-sm text-slate-400">{label}</div>
+      <div className="mt-2 text-3xl font-semibold text-slate-50">{value}</div>
+      <div className="mt-2 text-xs text-slate-500">{hint}</div>
+    </div>
+  );
+}
+
+function Toggle({ label, description, checked, onChange, disabled }) {
+  return (
+    <label className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4">
+      <div>
+        <div className="text-sm font-medium text-slate-100">{label}</div>
+        {description ? <div className="mt-1 text-xs text-slate-500">{description}</div> : null}
+      </div>
+      <Switch checked={checked} onChange={onChange} disabled={disabled} />
     </label>
   );
 }
 
-function Field({ label, helper, value, onChange, type = "text" }) {
+function Switch({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      className={`relative inline-flex h-8 w-14 items-center rounded-full border transition ${
+        checked ? "border-emerald-300/40 bg-emerald-500/35" : "border-white/15 bg-slate-700/70"
+      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+    >
+      <span
+        className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition ${
+          checked ? "translate-x-7" : "translate-x-1"
+        }`}
+      />
+    </button>
+  );
+}
+
+function Field({ label, helper, value, onChange, placeholder, disabled }) {
   return (
     <label className="block text-sm text-slate-300">
-      <div>{label}</div>
+      <div className="font-medium text-slate-100">{label}</div>
       {helper ? <div className="mt-1 text-xs text-slate-500">{helper}</div> : null}
       <input
-        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+        placeholder={placeholder}
+        disabled={disabled}
+        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none ring-0 transition placeholder:text-slate-500 focus:border-cyan-300/50 disabled:cursor-not-allowed disabled:opacity-50"
       />
     </label>
+  );
+}
+
+function NumberField({ label, helper, value, onChange, min, disabled }) {
+  return (
+    <label className="block text-sm text-slate-300">
+      <div className="font-medium text-slate-100">{label}</div>
+      {helper ? <div className="mt-1 text-xs text-slate-500">{helper}</div> : null}
+      <input
+        type="number"
+        min={min}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none ring-0 transition placeholder:text-slate-500 focus:border-cyan-300/50 disabled:cursor-not-allowed disabled:opacity-50"
+      />
+    </label>
+  );
+}
+
+function Info({ label, value, tone = "cyan", mono = false }) {
+  const tones = {
+    cyan: "border-cyan-300/20 bg-cyan-500/10 text-cyan-100",
+    emerald: "border-emerald-300/20 bg-emerald-500/10 text-emerald-100",
+    rose: "border-rose-300/20 bg-rose-500/10 text-rose-100"
+  };
+
+  return (
+    <div className={`rounded-2xl border p-4 ${tones[tone]}`}>
+      <div className="text-xs uppercase tracking-[0.2em] opacity-70">{label}</div>
+      <div className={`mt-2 text-sm font-semibold ${mono ? "font-mono" : ""}`}>{value}</div>
+    </div>
   );
 }
