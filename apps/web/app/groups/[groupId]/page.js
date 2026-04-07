@@ -22,7 +22,8 @@ const defaultSettings = {
   spamWindowSeconds: 10,
   spamMaxMessages: 5,
   pushToGroup: false,
-  notifyAdmins: true
+  notifyAdmins: true,
+  protectionStatusTargetLineGroupId: ""
 };
 
 const defaultWelcome = {
@@ -110,6 +111,7 @@ export default function GroupDetailPage() {
   const [settings, setSettings] = useState(defaultSettings);
   const [welcome, setWelcome] = useState(defaultWelcome);
   const [rule, setRule] = useState(null);
+  const [allGroups, setAllGroups] = useState([]);
   const [savingKey, setSavingKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -133,11 +135,12 @@ export default function GroupDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [groupRes, settingsRes, ruleRes, welcomeRes] = await Promise.all([
+      const [groupRes, settingsRes, ruleRes, welcomeRes, groupsRes] = await Promise.all([
         apiFetch(`/groups/${groupId}`),
         apiFetch(`/groups/${groupId}/settings`),
         apiFetch(`/groups/${groupId}/rules`),
-        apiFetch(`/welcome/groups/${groupId}`)
+        apiFetch(`/welcome/groups/${groupId}`),
+        apiFetch(`/groups`)
       ]);
 
       setGroup(groupRes.group);
@@ -150,6 +153,7 @@ export default function GroupDetailPage() {
         ...defaultWelcome,
         ...(welcomeRes.item || {})
       });
+      setAllGroups(Array.isArray(groupsRes.groups) ? groupsRes.groups : []);
     } catch (err) {
       setError(err.message || "無法載入群組資料");
     } finally {
@@ -324,6 +328,45 @@ export default function GroupDetailPage() {
                 value={formatAction(group.pendingActions?.[0]?.actionType) || "尚無動作"}
                 tone={group.pendingActions?.[0]?.actionType ? "emerald" : "cyan"}
               />
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-50">保護狀態輸出群組</h2>
+                <p className="mt-1 text-sm text-slate-400">可指定 `保護狀態` 指令要回覆到哪一個群組；留空則回覆目前群組。</p>
+              </div>
+              <button
+                onClick={() => updateSettingField("protectionStatusTargetLineGroupId", settings.protectionStatusTargetLineGroupId || null)}
+                disabled={!canWrite || savingKey === "protectionStatusTargetLineGroupId"}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingKey === "protectionStatusTargetLineGroupId" ? "儲存中..." : "儲存輸出群組"}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm text-slate-300 sm:col-span-2">
+                <div className="font-medium text-slate-100">指定輸出群組</div>
+                <select
+                  value={settings.protectionStatusTargetLineGroupId || ""}
+                  onChange={(e) => setSettings((current) => ({ ...current, protectionStatusTargetLineGroupId: e.target.value }))}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
+                >
+                  <option value="">目前群組</option>
+                  {allGroups
+                    .filter((item) => item.id !== groupId)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name || item.lineGroupId}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm text-cyan-100 sm:col-span-2">
+                指定後，群組輸入 <span className="font-semibold">保護狀態</span> 時，機器人會把完整狀態送到你選擇的群組。
+              </div>
             </div>
           </section>
 

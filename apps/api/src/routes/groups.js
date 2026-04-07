@@ -35,6 +35,9 @@ const settingsSchema = z.object({
   missionEnabled: z.boolean().optional(),
   checkinEnabled: z.boolean().optional(),
   rankingEnabled: z.boolean().optional(),
+  dailyReportEnabled: z.boolean().optional(),
+  dailyReportTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  protectionStatusTargetLineGroupId: z.string().optional().nullable(),
   violationThreshold: z.coerce.number().int().min(0).optional(),
   spamWindowSeconds: z.coerce.number().int().min(1).optional(),
   spamMaxMessages: z.coerce.number().int().min(1).optional(),
@@ -107,7 +110,9 @@ groupsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req,
       groupSetting: {
         create: {
           ownerAdminId,
-          keywordAutoReplyEnabled: true
+          keywordAutoReplyEnabled: true,
+          dailyReportEnabled: true,
+          dailyReportTime: "09:00"
         }
       },
       welcomeSetting: {
@@ -382,6 +387,11 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
       missionEnabled: payload.missionEnabled ?? undefined,
       checkinEnabled: payload.checkinEnabled ?? undefined,
       rankingEnabled: payload.rankingEnabled ?? undefined,
+      dailyReportEnabled: payload.dailyReportEnabled ?? undefined,
+      dailyReportTime: payload.dailyReportTime ?? undefined,
+      protectionStatusTargetLineGroupId: payload.protectionStatusTargetLineGroupId === undefined
+        ? undefined
+        : payload.protectionStatusTargetLineGroupId,
       violationThreshold: payload.violationThreshold ?? undefined,
       spamWindowSeconds: payload.spamWindowSeconds ?? undefined,
       spamMaxMessages: payload.spamMaxMessages ?? undefined,
@@ -402,6 +412,9 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
       missionEnabled: payload.missionEnabled ?? false,
       checkinEnabled: payload.checkinEnabled ?? false,
       rankingEnabled: payload.rankingEnabled ?? false,
+      dailyReportEnabled: payload.dailyReportEnabled ?? true,
+      dailyReportTime: payload.dailyReportTime || "09:00",
+      protectionStatusTargetLineGroupId: payload.protectionStatusTargetLineGroupId ?? null,
       violationThreshold: payload.violationThreshold ?? 3,
       spamWindowSeconds: payload.spamWindowSeconds ?? 10,
       spamMaxMessages: payload.spamMaxMessages ?? 5,

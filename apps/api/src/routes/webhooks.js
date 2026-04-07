@@ -54015,6 +54015,19 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
 
 
     const settings = await ensureGroupSettings(group.id);
+    const statusTargetLineGroupId = settings.groupSetting?.protectionStatusTargetLineGroupId || null;
+    const statusTargetGroup =
+      statusTargetLineGroupId && statusTargetLineGroupId !== group.id
+        ? await prisma.group.findFirst({
+            where: {
+              id: statusTargetLineGroupId,
+              ...(group.ownerAdminId ? { ownerAdminId: group.ownerAdminId } : {})
+            },
+            select: { id: true, lineGroupId: true, name: true }
+          })
+        : null;
+    const statusTargetConversationId = statusTargetGroup?.lineGroupId || group.lineGroupId;
+    const statusTargetLabel = statusTargetGroup?.name || statusTargetGroup?.lineGroupId || group.name || "目前群組";
 
 
 
@@ -54143,6 +54156,9 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
 
 
     const message = buildProtectionStatusMessage(group, settings.groupSetting, group.ruleSetting, settings.welcomeSetting);
+    const deliveredMessage = statusTargetConversationId === group.lineGroupId
+      ? message
+      : `${message}\n\n╔═══發送結果═══\n╠ 已送至：${statusTargetLabel}\n╚══════════════`;
 
 
 
@@ -77791,7 +77807,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
       buildProtectionStatusMessage(refreshedGroup, refreshedGroup?.groupSetting, refreshedGroup?.ruleSetting, refreshedGroup?.welcomeSetting);
 
     await sendConversationMessage({
-      lineConversationId: group.lineGroupId,
+      lineConversationId: statusTargetConversationId,
       replyToken,
       text: confirmation,
       accessToken: lineConfig?.channelAccessToken || undefined
