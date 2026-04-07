@@ -8,7 +8,7 @@ import { Shell } from "../../components/Shell";
 export default function AdminsPage() {
   const router = useRouter();
   const user = getUser();
-  const canWrite = user?.role === "ADMIN";
+  const canWrite = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
