@@ -29,8 +29,8 @@ function heuristicAnalyze(content, matches, spamCount) {
     category,
     reason:
       category === "benign"
-        ? "訊息看起來正常，未命中明顯違規規則。"
-        : `系統判定此訊息可能屬於 ${category} 類型違規。`,
+        ? "內容看起來正常，目前未發現明顯違規跡象。"
+        : `系統偵測到可能的${categoryLabel(category)}違規風險，請進一步確認。`,
     confidence: Math.min(0.95, 0.55 + riskScore / 200),
     raw: {
       mode: "heuristic",
@@ -150,7 +150,7 @@ function normalizeAiPayload(payload, content, matches, spamCount) {
   return {
     riskScore,
     category: String(payload.category || "benign"),
-    reason: String(payload.reason || "AI completed moderation assessment."),
+    reason: String(payload.reason || "AI 已完成違規判斷。"),
     confidence,
     raw: {
       mode: "llm",
@@ -180,4 +180,15 @@ function clampNumber(value, min, max) {
   const number = Number(value);
   if (Number.isNaN(number)) return min;
   return Math.min(max, Math.max(min, number));
+}
+
+function categoryLabel(category) {
+  const labels = {
+    invite: "邀請連結",
+    url: "網址",
+    blacklist: "黑名單",
+    spam: "洗版",
+    benign: "正常"
+  };
+  return labels[category] || category || "未知";
 }
