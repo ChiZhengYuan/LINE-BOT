@@ -293,6 +293,7 @@ function ConfigCard({ item, testing, deleting, onEdit, onTest, onDelete }) {
             ) : null}
           </div>
           <div className="mt-2 text-sm text-slate-300">Channel ID：{item.channelId}</div>
+          <div className="mt-1 text-xs text-slate-400">Config ID：{item.id}</div>
           <div className="mt-1 text-xs text-slate-400">
             Webhook：{item.webhookUrl || "未填"} ｜ Token：{item.webhookToken || "未設定"}
           </div>
