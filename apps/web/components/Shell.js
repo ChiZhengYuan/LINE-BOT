@@ -150,9 +150,21 @@ export function Shell({ children, title, subtitle }) {
                     }
                   }}
                   className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-900"
-                  aria-label="??????"
+                  aria-label="????"
                 >
-                  <span aria-hidden="true">🔔</span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5"
+                  >
+                    <path d="M15 17H9a3 3 0 0 0 6 0Z" />
+                    <path d="M18 16H6a1 1 0 0 1-.8-1.6A7.5 7.5 0 0 0 7 10V8a5 5 0 0 1 10 0v2a7.5 7.5 0 0 0 1.8 4.4A1 1 0 0 1 18 16Z" />
+                  </svg>
                   {mounted && unreadCount > 0 ? (
                     <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
