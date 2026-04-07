@@ -104,9 +104,21 @@ export function Shell({ children, title, subtitle }) {
         <main className="min-w-0 flex-1">
           <div className="sticky top-3 z-20 mb-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 shadow-glow backdrop-blur sm:top-4 sm:px-5 lg:static">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h1 className="truncate text-xl font-semibold sm:text-2xl">{title}</h1>
-                <p className="mt-1 text-xs leading-5 text-slate-300 sm:text-sm">{subtitle}</p>
+              <div className="flex min-w-0 items-start gap-3">
+                <Link href="/dashboard" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="LINE Group Manager">
+                  <Image
+                    src="/brand-logo.png"
+                    alt="LINE Group Manager logo"
+                    width={34}
+                    height={34}
+                    className="h-9 w-9 rounded-xl border border-white/10 bg-slate-950/70 object-contain p-1"
+                    priority
+                  />
+                </Link>
+                <div className="min-w-0">
+                  <h1 className="truncate text-xl font-semibold sm:text-2xl">{title}</h1>
+                  <p className="mt-1 text-xs leading-5 text-slate-300 sm:text-sm">{subtitle}</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Link
