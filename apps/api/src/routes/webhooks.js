@@ -125,18 +125,27 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
         });
       }
 
-      await handleCheckin(group, member, event.message.text);
-      await handleMissions(group, member, event.message.text);
-      await handleAutoReply(group, event.message.text, event.replyToken, lineAccessToken);
-
-      await upsertLoanCaseFromMessage({
+      const protectionStatusHandled = await handleProtectionStatusCommand({
         group,
-        sourceGroupId: lineGroupId,
-        sourceMessageId: String(event.message.id || messageLog.id),
         content: event.message.text,
-        lineDisplayName: profile?.displayName || null,
-        lineUserId
+        replyToken: event.replyToken,
+        accessToken: lineAccessToken
       });
+
+      if (!protectionStatusHandled) {
+        await handleCheckin(group, member, event.message.text);
+        await handleMissions(group, member, event.message.text);
+        await handleAutoReply(group, event.message.text, event.replyToken, lineAccessToken);
+
+        await upsertLoanCaseFromMessage({
+          group,
+          sourceGroupId: lineGroupId,
+          sourceMessageId: String(event.message.id || messageLog.id),
+          content: event.message.text,
+          lineDisplayName: profile?.displayName || null,
+          lineUserId
+        });
+      }
 
       if (analysis.actionTaken === "WARNING") {
         try {
@@ -386,6 +395,40 @@ async function handleAutoReply(group, content, replyToken, accessToken = null) {
   }
 }
 
+async function handleProtectionStatusCommand({ group, content, replyToken, accessToken = null }) {
+  const normalized = String(content || "").trim().replace(/\s+/g, "");
+  const keywords = [
+    "保護狀態",
+    "功能狀態",
+    "群組狀態",
+    "開關狀態",
+    "狀態查詢",
+    "功能總覽",
+    "保護總覽"
+  ];
+
+  const isCommand =
+    keywords.includes(normalized) ||
+    normalized === "功能" ||
+    normalized === "狀態" ||
+    normalized.includes("保護狀態") ||
+    normalized.includes("功能狀態") ||
+    normalized.includes("群組狀態") ||
+    normalized.includes("開關狀態");
+
+  if (!isCommand) return false;
+
+  const settings = await ensureGroupSettings(group.id);
+  const message = buildProtectionStatusMessage(group, settings.groupSetting, group.ruleSetting, settings.welcomeSetting);
+  await sendConversationMessage({
+    lineConversationId: group.lineGroupId,
+    replyToken,
+    text: message,
+    accessToken
+  });
+  return true;
+}
+
 async function sendConversationMessage({ lineConversationId, replyToken, text, accessToken = null }) {
   const message = String(text || "").trim();
   if (!message) return;
@@ -425,6 +468,39 @@ function buildWelcomeMessage(welcomeSetting, name) {
     welcomeSetting.welcomeMessage,
     "",
     welcomeSetting.groupRulesMessage
+  ].join("\n");
+}
+
+function buildProtectionStatusMessage(group, groupSetting, ruleSetting, welcomeSetting) {
+  const on = "✅ 開啟";
+  const off = "❌ 關閉";
+  const unknown = "❓ 未設定";
+  const boolText = (value) => (value === undefined || value === null ? unknown : value ? on : off);
+  const dailyReportTime = env.loanDailyReportTime || "09:00";
+
+  return [
+    "╔═══保護狀態═══",
+    `╠ 踢人保護 ${boolText(groupSetting?.autoEnforcement)}`,
+    `╠ 違規提醒 ${boolText(groupSetting?.notifyAdmins)}`,
+    `╠ 每日匯報 ✅ 開啟（每日 ${dailyReportTime}）`,
+    `╠ 抽獎系統 ${boolText(groupSetting?.lotteryEnabled)}`,
+    `╠ 網址保護 ${boolText(ruleSetting?.protectUrl)}`,
+    `╠ 邀請保護 ${boolText(ruleSetting?.protectInvite)}`,
+    `╠ 黑名單過濾 ${boolText(groupSetting?.blacklistFilteringEnabled)}`,
+    `╠ AI 判斷 ${boolText(groupSetting?.aiEnabled)}`,
+    `╠ 洗版偵測 ${boolText(groupSetting?.spamDetectionEnabled)}`,
+    `╠ 新人歡迎 ${boolText(groupSetting?.welcomeEnabled || welcomeSetting?.enabled)}`,
+    `╠ 定時公告 ${boolText(groupSetting?.announcementEnabled)}`,
+    `╠ 關鍵字自動回覆 ${boolText(groupSetting?.keywordAutoReplyEnabled)}`,
+    `╠ 任務系統 ${boolText(groupSetting?.missionEnabled)}`,
+    `╠ 簽到系統 ${boolText(groupSetting?.checkinEnabled)}`,
+    `╠ 排行榜 ${boolText(groupSetting?.rankingEnabled)}`,
+    "╠ 群名保護 ❌ 尚未支援",
+    "╠ 記事本保護 ❌ 尚未支援",
+    "╠ 相簿保護 ❌ 尚未支援",
+    "╚═══呼in狀態═══",
+    "輸入「保護狀態」可隨時查看最新開關。",
+    "每日匯報會依排程自動整理案件進度。"
   ].join("\n");
 }
 
