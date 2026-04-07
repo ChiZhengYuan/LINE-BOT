@@ -84,6 +84,15 @@ autoRepliesRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async 
     }
   });
 
+  await prisma.groupSetting.upsert({
+    where: { groupId: data.groupId },
+    update: { keywordAutoReplyEnabled: true },
+    create: {
+      groupId: data.groupId,
+      keywordAutoReplyEnabled: true
+    }
+  });
+
   await logOperation({
     adminUserId: req.user.sub,
     groupId: data.groupId,
@@ -93,6 +102,32 @@ autoRepliesRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async 
   });
 
   res.status(201).json({ item });
+});
+
+autoRepliesRouter.post("/groups/:groupId/enable", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const groupId = String(req.params.groupId || "").trim();
+  if (!groupId) {
+    return res.status(400).json({ message: "Group ID is required" });
+  }
+
+  const settings = await prisma.groupSetting.upsert({
+    where: { groupId },
+    update: { keywordAutoReplyEnabled: true },
+    create: {
+      groupId,
+      keywordAutoReplyEnabled: true
+    }
+  });
+
+  await logOperation({
+    adminUserId: req.user.sub,
+    groupId,
+    eventType: "GROUP_SETTING_CHANGED",
+    title: "關鍵字自動回覆已啟用",
+    detail: groupId
+  });
+
+  res.json({ ok: true, item: settings });
 });
 
 autoRepliesRouter.delete("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {

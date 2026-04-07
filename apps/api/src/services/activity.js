@@ -66,7 +66,8 @@ export async function ensureGroupSettings(groupId) {
       update: {},
       create: {
         groupId,
-        ownerAdminId
+        ownerAdminId,
+        keywordAutoReplyEnabled: true
       }
     }),
     prisma.welcomeSetting.upsert({

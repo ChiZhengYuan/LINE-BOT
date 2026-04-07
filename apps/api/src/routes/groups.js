@@ -106,7 +106,8 @@ groupsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req,
       },
       groupSetting: {
         create: {
-          ownerAdminId
+          ownerAdminId,
+          keywordAutoReplyEnabled: true
         }
       },
       welcomeSetting: {

@@ -103,6 +103,23 @@ async function backfillOwnership() {
   await backfillByGroup("loanCaseStatusLog", ownerAdminId);
   await backfillByGroup("loanCaseReminder", ownerAdminId);
   await backfillByGroup("dailyCaseReport", ownerAdminId);
+
+  await prisma.groupSetting.updateMany({
+    where: {
+      keywordAutoReplyEnabled: false,
+      group: {
+        autoReplyRules: {
+          some: {
+            isActive: true
+          }
+        }
+      }
+    },
+    data: {
+      keywordAutoReplyEnabled: true
+    }
+  }).catch(() => {});
+
   await prisma.adminNotification.updateMany({
     where: { ownerAdminId: null },
     data: { ownerAdminId }

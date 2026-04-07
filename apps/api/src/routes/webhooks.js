@@ -452,7 +452,9 @@ async function upsertGroup(lineGroupId, ownerAdminId = null) {
         create: {}
       },
       groupSetting: {
-        create: {}
+        create: {
+          keywordAutoReplyEnabled: true
+        }
       },
       welcomeSetting: {
         create: {
