@@ -2,10 +2,14 @@ import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 
 const port = process.env.PORT || "3000";
-const serverPath = ".next/standalone/server.js";
+const candidates = [
+  ".next/standalone/apps/web/server.js",
+  ".next/standalone/server.js"
+];
+const serverPath = candidates.find((path) => existsSync(path));
 
-if (!existsSync(serverPath)) {
-  console.error(`[start] Missing ${serverPath}. Run the build step first.`);
+if (!serverPath) {
+  console.error(`[start] Missing standalone server.js. Run the build step first.`);
   process.exit(1);
 }
 
