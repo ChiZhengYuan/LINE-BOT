@@ -6,6 +6,7 @@ import { analyzeMessage } from "../services/ruleEngine.js";
 import { recordViolation } from "../services/violationProcessor.js";
 import { pushText, replyText, getProfile } from "../services/line.js";
 import { createNotification, ensureGroupSettings, ensureMember, logOperation, rebuildRankingsForGroup } from "../services/activity.js";
+import { upsertLoanCaseFromMessage } from "../services/loanAutomation.js";
 
 export const webhooksRouter = express.Router();
 
@@ -111,6 +112,15 @@ webhooksRouter.post("/line", express.raw({ type: "application/json" }), async (r
       await handleCheckin(group, member, event.message.text);
       await handleMissions(group, member, event.message.text);
       await handleAutoReply(group, event.message.text, event.replyToken);
+
+      await upsertLoanCaseFromMessage({
+        group,
+        sourceGroupId: lineGroupId,
+        sourceMessageId: String(event.message.id || messageLog.id),
+        content: event.message.text,
+        lineDisplayName: profile?.displayName || null,
+        lineUserId
+      });
 
       if (analysis.actionTaken === "WARNING") {
         await replyText(event.replyToken, group.ruleSetting?.warningMessage || "請注意群組規範。");

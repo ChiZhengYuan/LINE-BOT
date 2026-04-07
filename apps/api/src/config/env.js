@@ -39,6 +39,8 @@ export const env = {
   aiSystemPrompt:
     process.env.AI_SYSTEM_PROMPT ||
     "You are a LINE group moderation classifier. Return strict JSON only with keys: risk_score, category, reason, confidence.",
+  loanDailyReportTime: process.env.LOAN_DAILY_REPORT_TIME || "09:00",
+  loanAutomationIntervalSeconds: Number(process.env.LOAN_AUTOMATION_INTERVAL_SECONDS || 60),
   defaultAdminEmail: process.env.DEFAULT_ADMIN_EMAIL || "admin@example.com",
   defaultAdminPassword: process.env.DEFAULT_ADMIN_PASSWORD || "Admin12345!",
   defaultAdminName: process.env.DEFAULT_ADMIN_NAME || "System Admin"

@@ -49,6 +49,8 @@ enum NotificationType {
   SYSTEM_ERROR
   WELCOME
   GROUP_SETTING_CHANGED
+  LOAN_CASE
+  LOAN_REPORT
 }
 
 enum MatchType {
@@ -109,6 +111,39 @@ enum OperationType {
   CHECKIN_CREATED
   MEMBER_UPDATED
   SYSTEM_ERROR
+  LOAN_CASE_CREATED
+  LOAN_CASE_UPDATED
+  LOAN_CASE_STATUS_CHANGED
+  DAILY_CASE_REPORT_CREATED
+  DAILY_CASE_REPORT_SENT
+  LOAN_REMINDER_CREATED
+  LOAN_REMINDER_SENT
+}
+
+enum LoanCaseStatus {
+  SUBMITTING
+  SUBMITTED
+  REVIEWING
+  APPROVED
+  SIGNED
+  DISBURSED
+  NEED_SUPPLEMENT
+  POSTPONED
+  REJECTED
+}
+
+enum LoanReminderType {
+  NEW_CASE
+  STALE_UPDATE
+  SUPPLEMENT_OVERDUE
+  APPROVED_WAIT_SIGN
+  SIGNED_WAIT_DISBURSE
+}
+
+enum LoanReminderStatus {
+  PENDING
+  SENT
+  DISMISSED
 }
 
 model AdminUser {
@@ -118,6 +153,7 @@ model AdminUser {
   name         String?
   role         Role           @default(ADMIN)
   operationLogs OperationLog[]
+  loanCaseStatusLogs LoanCaseStatusLog[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 }
@@ -156,6 +192,10 @@ model Group {
   missions         Mission[]
   lotteries        Lottery[]
   rankings         Ranking[]
+  loanCases        LoanCase[]
+  loanCaseStatusLogs LoanCaseStatusLog[]
+  loanCaseReminders LoanCaseReminder[]
+  dailyCaseReports DailyCaseReport[]
 }
 
 model RuleSetting {
@@ -568,4 +608,87 @@ model Ranking {
 
   @@unique([groupId, period, periodKey, memberId])
   @@index([groupId, period, periodKey, rankPosition])
+}
+
+model LoanCase {
+  id             String           @id @default(cuid())
+  groupId        String
+  group          Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  customerName   String
+  phone          String?
+  lineDisplayName String?
+  caseType       String?
+  amount         Float?
+  status         LoanCaseStatus   @default(SUBMITTING)
+  ownerStaff     String?
+  sourceGroupId  String
+  sourceMessageId String
+  note           String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  statusLogs     LoanCaseStatusLog[]
+  reminders      LoanCaseReminder[]
+
+  @@unique([sourceGroupId, sourceMessageId])
+  @@index([groupId, customerName])
+  @@index([groupId, phone])
+  @@index([groupId, status])
+  @@index([updatedAt])
+}
+
+model LoanCaseStatusLog {
+  id             String          @id @default(cuid())
+  groupId        String
+  group          Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  loanCaseId     String
+  loanCase       LoanCase        @relation(fields: [loanCaseId], references: [id], onDelete: Cascade)
+  fromStatus     LoanCaseStatus?
+  toStatus       LoanCaseStatus
+  note           String?         @db.Text
+  meta           Json?
+  changedByAdminId String?
+  changedByAdmin AdminUser?      @relation(fields: [changedByAdminId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+
+  @@index([groupId, createdAt])
+  @@index([loanCaseId, createdAt])
+}
+
+model LoanCaseReminder {
+  id            String             @id @default(cuid())
+  groupId       String
+  group         Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  loanCaseId    String
+  loanCase      LoanCase           @relation(fields: [loanCaseId], references: [id], onDelete: Cascade)
+  reminderType  LoanReminderType
+  status        LoanReminderStatus @default(PENDING)
+  dueAt         DateTime?
+  sentAt        DateTime?
+  message       String             @db.Text
+  dedupeKey     String             @unique
+  meta          Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([groupId, status])
+  @@index([loanCaseId, reminderType])
+}
+
+model DailyCaseReport {
+  id           String     @id @default(cuid())
+  groupId      String
+  group        Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  reportDate   DateTime
+  periodKey    String
+  title        String
+  content      String     @db.Text
+  caseCount    Int        @default(0)
+  meta         Json?
+  sentAt       DateTime?
+  sentGroupAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([groupId, reportDate])
+  @@index([groupId, reportDate])
 }

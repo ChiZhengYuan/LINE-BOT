@@ -13,6 +13,7 @@ import { welcomeRouter } from "./routes/welcome.js";
 import { announcementsRouter } from "./routes/announcements.js";
 import { autoRepliesRouter } from "./routes/autoReplies.js";
 import { checkinsRouter } from "./routes/checkins.js";
+import { loansRouter } from "./routes/loans.js";
 import { missionsRouter } from "./routes/missions.js";
 import { lotteriesRouter } from "./routes/lotteries.js";
 import { rankingsRouter } from "./routes/rankings.js";
@@ -55,6 +56,7 @@ export function createApp() {
   app.use("/api/announcements", announcementsRouter);
   app.use("/api/auto-replies", autoRepliesRouter);
   app.use("/api/checkins", checkinsRouter);
+  app.use("/api/loans", loansRouter);
   app.use("/api/missions", missionsRouter);
   app.use("/api/lotteries", lotteriesRouter);
   app.use("/api/rankings", rankingsRouter);

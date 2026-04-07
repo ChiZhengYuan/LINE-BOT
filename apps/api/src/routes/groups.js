@@ -69,7 +69,8 @@ groupsRouter.get("/", requireAuth, async (req, res) => {
           messages: true,
           pendingActions: true,
           members: true,
-          notifications: true
+            notifications: true,
+            loanCases: true
         }
       }
     }
@@ -143,6 +144,7 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
         take: 1
       },
       notifications: { orderBy: { createdAt: "desc" }, take: 10 },
+      loanCases: { orderBy: { updatedAt: "desc" }, take: 10 },
       operationLogs: { orderBy: { createdAt: "desc" }, take: 10 },
       _count: {
         select: {
@@ -153,8 +155,9 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
           notifications: true,
           announcements: true,
           autoReplyRules: true,
-          missions: true,
-          lotteries: true
+            missions: true,
+            lotteries: true,
+            loanCases: true
         }
       }
     }
@@ -373,4 +376,3 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
 
   res.json({ groupSetting: currentSetting, ruleSetting });
 });
-

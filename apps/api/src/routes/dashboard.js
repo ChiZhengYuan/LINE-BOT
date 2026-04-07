@@ -15,7 +15,10 @@ dashboardRouter.get("/summary", requireAuth, async (req, res) => {
     announcements,
     missions,
     lotteries,
-    checkins
+    checkins,
+    loanCases,
+    loanReports,
+    loanReminders
   ] = await Promise.all([
     prisma.group.count(),
     prisma.violation.count(),
@@ -26,7 +29,10 @@ dashboardRouter.get("/summary", requireAuth, async (req, res) => {
     prisma.announcement.count(),
     prisma.mission.count(),
     prisma.lottery.count(),
-    prisma.checkin.count()
+    prisma.checkin.count(),
+    prisma.loanCase.count(),
+    prisma.dailyCaseReport.count(),
+    prisma.loanCaseReminder.count({ where: { status: "PENDING" } })
   ]);
 
   res.json({
@@ -39,7 +45,10 @@ dashboardRouter.get("/summary", requireAuth, async (req, res) => {
     announcements,
     missions,
     lotteries,
-    checkins
+    checkins,
+    loanCases,
+    loanReports,
+    loanReminders
   });
 });
 
@@ -59,7 +68,8 @@ dashboardRouter.get("/groups", requireAuth, async (req, res) => {
           messages: true,
           pendingActions: true,
           members: true,
-          notifications: true
+          notifications: true,
+          loanCases: true
         }
       }
     }
@@ -79,7 +89,7 @@ dashboardRouter.get("/overview", requireAuth, async (req, res) => {
     return { date, next, key: date.toISOString().slice(0, 10) };
   });
 
-  const [violations, messages, members, notifications, logs, groups, rankings] = await Promise.all([
+  const [violations, messages, members, notifications, logs, groups, rankings, loanCases, loanReports, loanStatusStats] = await Promise.all([
     prisma.violation.findMany({
       where: { createdAt: { gte: days[0].date } },
       select: { createdAt: true, groupId: true }
@@ -112,7 +122,8 @@ dashboardRouter.get("/overview", requireAuth, async (req, res) => {
             violations: true,
             announcements: true,
             missions: true,
-            lotteries: true
+            lotteries: true,
+            loanCases: true
           }
         }
       }
@@ -122,6 +133,19 @@ dashboardRouter.get("/overview", requireAuth, async (req, res) => {
       orderBy: [{ activeScore: "desc" }, { rankPosition: "asc" }],
       take: 10,
       include: { group: true, member: true }
+    }),
+    prisma.loanCase.findMany({
+      where: { updatedAt: { gte: days[0].date } },
+      select: { createdAt: true, updatedAt: true, groupId: true, status: true }
+    }),
+    prisma.dailyCaseReport.findMany({
+      orderBy: { reportDate: "desc" },
+      take: 5,
+      include: { group: true }
+    }),
+    prisma.loanCase.groupBy({
+      by: ["status"],
+      _count: { status: true }
     })
   ]);
 
@@ -129,12 +153,14 @@ dashboardRouter.get("/overview", requireAuth, async (req, res) => {
     const dayViolations = violations.filter((item) => item.createdAt >= date && item.createdAt < next).length;
     const dayMessages = messages.filter((item) => item.createdAt >= date && item.createdAt < next).length;
     const dayMembers = members.filter((item) => item.createdAt >= date && item.createdAt < next).length;
+    const dayLoanCases = loanCases.filter((item) => item.createdAt >= date && item.createdAt < next).length;
 
     return {
       date: key,
       violations: dayViolations,
       messages: dayMessages,
-      members: dayMembers
+      members: dayMembers,
+      loanCases: dayLoanCases
     };
   });
 
@@ -143,6 +169,11 @@ dashboardRouter.get("/overview", requireAuth, async (req, res) => {
     recentNotifications: notifications,
     recentLogs: logs,
     highRiskMembers: rankings,
+    recentLoanReports: loanReports,
+    loanStatusStats: loanStatusStats.reduce((acc, item) => {
+      acc[item.status] = item._count.status;
+      return acc;
+    }, {}),
     groupStats: groups.map((group) => ({
       id: group.id,
       name: group.name,
@@ -151,8 +182,8 @@ dashboardRouter.get("/overview", requireAuth, async (req, res) => {
       violations: group._count.violations,
       announcements: group._count.announcements,
       missions: group._count.missions,
-      lotteries: group._count.lotteries
+      lotteries: group._count.lotteries,
+      loanCases: group._count.loanCases || 0
     }))
   });
 });
-
