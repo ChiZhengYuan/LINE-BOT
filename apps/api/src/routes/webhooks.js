@@ -431,6 +431,165 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
     return true;
   }
 
+  const dailyReportCommand = parseDailyReportTimeCommand(normalized);
+  if (dailyReportCommand) {
+    if (!authorized) {
+      await sendConversationMessage({
+        lineConversationId: group.lineGroupId,
+        replyToken,
+        text: "你沒有權限設定每日匯報時間。",
+        accessToken
+      }).catch(() => {});
+      return true;
+    }
+
+    await prisma.groupSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        dailyReportTime: dailyReportCommand.time,
+        dailyReportEnabled: true
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: true,
+        aiEnabled: true,
+        blacklistFilteringEnabled: true,
+        spamDetectionEnabled: true,
+        welcomeEnabled: false,
+        announcementEnabled: false,
+        dailyReportEnabled: true,
+        dailyReportTime: dailyReportCommand.time,
+        keywordAutoReplyEnabled: false,
+        lotteryEnabled: false,
+        missionEnabled: false,
+        checkinEnabled: false,
+        rankingEnabled: false,
+        violationThreshold: 3,
+        spamWindowSeconds: 10,
+        spamMaxMessages: 5,
+        pushToGroup: false,
+        notifyAdmins: true
+      }
+    });
+
+    await logOperation({
+      groupId: group.id,
+      adminUserId: null,
+      ownerAdminId: group.ownerAdminId || null,
+      eventType: "GROUP_SETTING_CHANGED",
+      title: "每日匯報時間更新",
+      detail: dailyReportCommand.time
+    }).catch(() => {});
+
+    const refreshedGroup = await prisma.group.findUnique({
+      where: { id: group.id },
+      include: { groupSetting: true, ruleSetting: true, welcomeSetting: true }
+    });
+
+    await sendConversationMessage({
+      lineConversationId: group.lineGroupId,
+      replyToken,
+      text: `每日匯報時間已設定為 ${dailyReportCommand.time}
+` +
+        buildProtectionStatusMessage(refreshedGroup, refreshedGroup?.groupSetting, refreshedGroup?.ruleSetting, refreshedGroup?.welcomeSetting),
+      accessToken
+    });
+    return true;
+  }
+
+  if (normalized === "全開" || normalized === "全關") {
+    const nextValue = normalized === "全開";
+    await prisma.groupSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        autoEnforcement: nextValue,
+        aiEnabled: nextValue,
+        blacklistFilteringEnabled: nextValue,
+        spamDetectionEnabled: nextValue,
+        welcomeEnabled: nextValue,
+        announcementEnabled: nextValue,
+        dailyReportEnabled: nextValue,
+        keywordAutoReplyEnabled: nextValue,
+        lotteryEnabled: nextValue,
+        missionEnabled: nextValue,
+        checkinEnabled: nextValue,
+        rankingEnabled: nextValue,
+        pushToGroup: nextValue,
+        notifyAdmins: nextValue
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: nextValue,
+        aiEnabled: nextValue,
+        blacklistFilteringEnabled: nextValue,
+        spamDetectionEnabled: nextValue,
+        welcomeEnabled: nextValue,
+        announcementEnabled: nextValue,
+        dailyReportEnabled: nextValue,
+        dailyReportTime: "09:00",
+        keywordAutoReplyEnabled: nextValue,
+        lotteryEnabled: nextValue,
+        missionEnabled: nextValue,
+        checkinEnabled: nextValue,
+        rankingEnabled: nextValue,
+        violationThreshold: 3,
+        spamWindowSeconds: 10,
+        spamMaxMessages: 5,
+        pushToGroup: nextValue,
+        notifyAdmins: nextValue
+      }
+    });
+
+    await prisma.ruleSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        protectUrl: nextValue,
+        protectInvite: nextValue
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        protectUrl: nextValue,
+        protectInvite: nextValue,
+        blacklistWords: [],
+        warningThreshold: 3,
+        reviewThreshold: 5,
+        kickThreshold: 7,
+        warningPoints: 2,
+        reviewPoints: 4,
+        kickPoints: 6,
+        warningMessage: "請注意群組規範，系統已記錄此次內容。",
+        adminNotifyLineIds: [],
+        adminNotifyTelegramChatIds: []
+      }
+    });
+
+    await logOperation({
+      groupId: group.id,
+      adminUserId: null,
+      ownerAdminId: group.ownerAdminId || null,
+      eventType: "GROUP_SETTING_CHANGED",
+      title: "群組功能切換",
+      detail: `${nextValue ? "全開" : "全關"}`
+    }).catch(() => {});
+
+    const refreshedGroup = await prisma.group.findUnique({
+      where: { id: group.id },
+      include: { groupSetting: true, ruleSetting: true, welcomeSetting: true }
+    });
+
+    await sendConversationMessage({
+      lineConversationId: group.lineGroupId,
+      replyToken,
+      text: `${nextValue ? "全開" : "全關"}
+` + buildProtectionStatusMessage(refreshedGroup, refreshedGroup?.groupSetting, refreshedGroup?.ruleSetting, refreshedGroup?.welcomeSetting),
+      accessToken
+    });
+    return true;
+  }
+
   const toggle = parseProtectionToggleCommand(normalized);
   if (!toggle) return false;
 
@@ -456,6 +615,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         spamDetectionEnabled: nextValue,
         welcomeEnabled: nextValue,
         announcementEnabled: nextValue,
+        dailyReportEnabled: nextValue,
         keywordAutoReplyEnabled: nextValue,
         lotteryEnabled: nextValue,
         missionEnabled: nextValue,
@@ -473,6 +633,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         spamDetectionEnabled: nextValue,
         welcomeEnabled: nextValue,
         announcementEnabled: nextValue,
+        dailyReportEnabled: nextValue,
+        dailyReportTime: "09:00",
         keywordAutoReplyEnabled: nextValue,
         lotteryEnabled: nextValue,
         missionEnabled: nextValue,
@@ -547,6 +709,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         spamDetectionEnabled: true,
         welcomeEnabled: false,
         announcementEnabled: false,
+        dailyReportEnabled: true,
+        dailyReportTime: "09:00",
         keywordAutoReplyEnabled: false,
         lotteryEnabled: false,
         missionEnabled: false,
@@ -566,8 +730,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
     adminUserId: null,
     ownerAdminId: group.ownerAdminId || null,
     eventType: "GROUP_SETTING_CHANGED",
-    title: "群組功能開關",
-    detail: `${toggle.label}${nextValue ? "開啟" : "關閉"}`
+    title: "群組功能切換",
+    detail: `${toggle.label}${nextValue ? "已開啟" : "已關閉"}`
   }).catch(() => {});
 
   const refreshedGroup = await prisma.group.findUnique({
@@ -579,7 +743,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
     }
   });
 
-  const confirmation = `${toggle.label}${nextValue ? "已開啟" : "已關閉"}\n` +
+  const confirmation = `${toggle.label}${nextValue ? "已開啟" : "已關閉"}
+` +
     buildProtectionStatusMessage(refreshedGroup, refreshedGroup?.groupSetting, refreshedGroup?.ruleSetting, refreshedGroup?.welcomeSetting);
 
   await sendConversationMessage({
@@ -590,7 +755,6 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
   });
   return true;
 }
-
 async function canManageGroupCommands(group, lineUserId) {
   if (!lineUserId) return false;
 
@@ -615,36 +779,39 @@ function parseProtectionToggleCommand(normalized) {
   const feature = toggleMatch[1];
   const checked = toggleMatch[2] === "開";
 
+  if (feature === "全" || feature === "全部" || feature === "全都") {
+    return { scope: "groupSetting", field: "__bulk__", checked, label: "全部功能" };
+  }
+
   const featureMap = [
-    { keywords: ["功能", "自動執法", "踢人保護", "保護"], scope: "groupSetting", field: "autoEnforcement", label: "自動執法" },
+    { keywords: ["自動執法", "蹭人保護", "保護"], scope: "groupSetting", field: "autoEnforcement", label: "自動執法" },
     { keywords: ["違規提醒", "提醒"], scope: "groupSetting", field: "notifyAdmins", label: "違規提醒" },
     { keywords: ["AI"], scope: "groupSetting", field: "aiEnabled", label: "AI 判斷" },
     { keywords: ["黑名單", "黑名單過濾"], scope: "groupSetting", field: "blacklistFilteringEnabled", label: "黑名單過濾" },
     { keywords: ["洗版"], scope: "groupSetting", field: "spamDetectionEnabled", label: "洗版偵測" },
     { keywords: ["新人", "歡迎"], scope: "groupSetting", field: "welcomeEnabled", label: "新人歡迎" },
     { keywords: ["公告", "定時公告"], scope: "groupSetting", field: "announcementEnabled", label: "定時公告" },
+    { keywords: ["每日匯報", "匯報", "日報"], scope: "groupSetting", field: "dailyReportEnabled", label: "每日匯報" },
     { keywords: ["關鍵字", "自動回覆"], scope: "groupSetting", field: "keywordAutoReplyEnabled", label: "關鍵字自動回覆" },
     { keywords: ["抽獎"], scope: "groupSetting", field: "lotteryEnabled", label: "抽獎系統" },
     { keywords: ["任務"], scope: "groupSetting", field: "missionEnabled", label: "任務系統" },
     { keywords: ["簽到"], scope: "groupSetting", field: "checkinEnabled", label: "簽到系統" },
-    { keywords: ["排行", "排行榜"], scope: "groupSetting", field: "rankingEnabled", label: "排行榜" },
+    { keywords: ["排行榜"], scope: "groupSetting", field: "rankingEnabled", label: "排行榜" },
     { keywords: ["網址"], scope: "ruleSetting", field: "protectUrl", label: "網址保護" },
     { keywords: ["邀請"], scope: "ruleSetting", field: "protectInvite", label: "邀請保護" }
   ];
-
-  if (feature === "全部") {
-    return {
-      scope: "groupSetting",
-      field: "__bulk__",
-      checked,
-      label: "全部功能"
-    };
-  }
 
   const matched = featureMap.find((item) => item.keywords.some((keyword) => feature.includes(keyword)));
   if (!matched) return null;
 
   return { ...matched, checked };
+}
+
+function parseDailyReportTimeCommand(normalized) {
+  const compact = String(normalized || "").replace(/\s+/g, "");
+  const match = compact.match(/^(?:每日匯報時間|每日匯報|匯報時間|日報時間|日報)(\d{2}:\d{2})$/);
+  if (!match) return null;
+  return { time: match[1] };
 }
 
 async function sendConversationMessage({ lineConversationId, replyToken, text, accessToken = null }) {
@@ -690,35 +857,35 @@ function buildWelcomeMessage(welcomeSetting, name) {
 }
 
 function buildProtectionStatusMessage(group, groupSetting, ruleSetting, welcomeSetting) {
-  const on = "✅ 開啟";
-  const off = "❌ 關閉";
-  const unknown = "❓ 未設定";
+  const on = "? 開啟";
+  const off = "? 關閉";
+  const unknown = "? 未設定";
   const boolText = (value) => (value === undefined || value === null ? unknown : value ? on : off);
-  const dailyReportTime = env.loanDailyReportTime || "09:00";
+  const dailyReportTime = groupSetting?.dailyReportTime || env.loanDailyReportTime || "09:00";
 
   return [
-    "╔═══保護狀態═══",
-    `╠ 踢人保護 ${boolText(groupSetting?.autoEnforcement)}`,
-    `╠ 違規提醒 ${boolText(groupSetting?.notifyAdmins)}`,
-    `╠ 每日匯報 ✅ 開啟（每日 ${dailyReportTime}）`,
-    `╠ 抽獎系統 ${boolText(groupSetting?.lotteryEnabled)}`,
-    `╠ 網址保護 ${boolText(ruleSetting?.protectUrl)}`,
-    `╠ 邀請保護 ${boolText(ruleSetting?.protectInvite)}`,
-    `╠ 黑名單過濾 ${boolText(groupSetting?.blacklistFilteringEnabled)}`,
-    `╠ AI 判斷 ${boolText(groupSetting?.aiEnabled)}`,
-    `╠ 洗版偵測 ${boolText(groupSetting?.spamDetectionEnabled)}`,
-    `╠ 新人歡迎 ${boolText(groupSetting?.welcomeEnabled || welcomeSetting?.enabled)}`,
-    `╠ 定時公告 ${boolText(groupSetting?.announcementEnabled)}`,
-    `╠ 關鍵字自動回覆 ${boolText(groupSetting?.keywordAutoReplyEnabled)}`,
-    `╠ 任務系統 ${boolText(groupSetting?.missionEnabled)}`,
-    `╠ 簽到系統 ${boolText(groupSetting?.checkinEnabled)}`,
-    `╠ 排行榜 ${boolText(groupSetting?.rankingEnabled)}`,
-    "╠ 群名保護 ❌ 尚未支援",
-    "╠ 記事本保護 ❌ 尚未支援",
-    "╠ 相簿保護 ❌ 尚未支援",
-    "╚═══呼in狀態═══",
+    "????保護狀態???",
+    `? 自動執法 ${boolText(groupSetting?.autoEnforcement)}`,
+    `? 違規提醒 ${boolText(groupSetting?.notifyAdmins)}`,
+    `? 每日匯報 ${boolText(groupSetting?.dailyReportEnabled)}`,
+    `? 匯報時間 ${dailyReportTime}`,
+    `? 抽獎系統 ${boolText(groupSetting?.lotteryEnabled)}`,
+    `? 網址保護 ${boolText(ruleSetting?.protectUrl)}`,
+    `? 邀請保護 ${boolText(ruleSetting?.protectInvite)}`,
+    `? 黑名單過濾 ${boolText(groupSetting?.blacklistFilteringEnabled)}`,
+    `? AI 判斷 ${boolText(groupSetting?.aiEnabled)}`,
+    `? 洗版偵測 ${boolText(groupSetting?.spamDetectionEnabled)}`,
+    `? 新人歡迎 ${boolText(groupSetting?.welcomeEnabled || welcomeSetting?.enabled)}`,
+    `? 定時公告 ${boolText(groupSetting?.announcementEnabled)}`,
+    `? 關鍵字自動回覆 ${boolText(groupSetting?.keywordAutoReplyEnabled)}`,
+    `? 任務系統 ${boolText(groupSetting?.missionEnabled)}`,
+    `? 簽到系統 ${boolText(groupSetting?.checkinEnabled)}`,
+    `? 排行榜 ${boolText(groupSetting?.rankingEnabled)}`,
+    "? 記事本保護 ? 尚未支援",
+    "? 相簿保護 ? 尚未支援",
+    "????呼in狀態???",
     "輸入「保護狀態」可隨時查看最新開關。",
-    "每日匯報會依排程自動整理案件進度。"
+    "每日匯報可用「每日匯報 08:30」調整時間。"
   ].join("\n");
 }
 
