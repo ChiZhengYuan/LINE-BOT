@@ -33,7 +33,7 @@ lineConfigsRouter.get("/", requireAuth, async (req, res) => {
   const query = parseQuery(listSchema, req, res);
   if (!query) return;
 
-  const ownerAdminId = req.user.sub;
+  const ownerAdminId = getTenantOwnerId(req);
   const where = ownerAdminId ? { ownerAdminId } : {};
   if (query.q) {
     where.OR = [
@@ -168,12 +168,21 @@ lineConfigsRouter.post("/:configId/test", requireAuth, async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
+  const verified = await prisma.lineDeveloperConfig.update({
+    where: { id: config.id },
+    data: {
+      status: "VERIFIED",
+      lastVerifiedAt: new Date(),
+      lastVerifiedError: null
+    }
+  });
+
   res.json({
     ok: true,
     item: {
-      ...sanitizeConfig(config),
-      channelSecretMasked: maskSecret(decryptSecret(config.channelSecretCiphertext)),
-      channelAccessTokenMasked: maskSecret(decryptSecret(config.channelAccessTokenCiphertext))
+      ...sanitizeConfig(verified),
+      channelSecretMasked: maskSecret(decryptSecret(verified.channelSecretCiphertext)),
+      channelAccessTokenMasked: maskSecret(decryptSecret(verified.channelAccessTokenCiphertext))
     }
   });
 });

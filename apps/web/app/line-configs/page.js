@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, getToken } from "../../lib/api";
+import { apiFetch, getToken, getUser } from "../../lib/api";
 import { Shell } from "../../components/Shell";
 
 const initialForm = {
@@ -20,13 +20,18 @@ const initialForm = {
 
 export default function LineConfigsPage() {
   const router = useRouter();
+  const user = getUser();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const editingItem = useMemo(() => items.find((item) => item.id === editingId) || null, [items, editingId]);
 
@@ -45,7 +50,7 @@ export default function LineConfigsPage() {
       const result = await apiFetch("/line-configs");
       setItems(result.items || []);
     } catch (err) {
-      setError(err.message || "載入 LINE 設定失敗");
+      setError(err.message || "無法載入 LINE 綁定");
     } finally {
       setLoading(false);
     }
@@ -54,6 +59,8 @@ export default function LineConfigsPage() {
   const beginCreate = () => {
     setEditingId(null);
     setForm(initialForm);
+    setError("");
+    setSuccess("");
   };
 
   const beginEdit = (item) => {
@@ -67,43 +74,47 @@ export default function LineConfigsPage() {
       botId: item.botId || "",
       webhookUrl: item.webhookUrl || "",
       webhookToken: item.webhookToken || "",
-      isActive: item.isActive,
-      isDefault: item.isDefault
+      isActive: Boolean(item.isActive),
+      isDefault: Boolean(item.isDefault)
     });
+    setError("");
+    setSuccess("");
   };
 
   const saveConfig = async (event) => {
     event.preventDefault();
     setSaving(true);
     setError("");
+    setSuccess("");
+
     try {
       const payload = {
-        configName: form.configName,
-        channelId: form.channelId,
-        basicId: form.basicId || null,
-        botId: form.botId || null,
-        webhookUrl: form.webhookUrl || null,
-        webhookToken: form.webhookToken || null,
+        configName: form.configName.trim(),
+        channelId: form.channelId.trim(),
+        basicId: form.basicId.trim() || null,
+        botId: form.botId.trim() || null,
+        webhookUrl: form.webhookUrl.trim() || null,
+        webhookToken: form.webhookToken.trim() || null,
         isActive: form.isActive,
         isDefault: form.isDefault
       };
-      if (!editingId || form.channelSecret) payload.channelSecret = form.channelSecret;
-      if (!editingId || form.channelAccessToken) payload.channelAccessToken = form.channelAccessToken;
 
-      if (editingId) {
-        await apiFetch(`/line-configs/${editingId}`, {
-          method: "PATCH",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiFetch("/line-configs", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
+      if (!editingId || form.channelSecret.trim()) payload.channelSecret = form.channelSecret.trim();
+      if (!editingId || form.channelAccessToken.trim()) payload.channelAccessToken = form.channelAccessToken.trim();
 
-      beginCreate();
+      const endpoint = editingId ? `/line-configs/${editingId}` : "/line-configs";
+      const method = editingId ? "PATCH" : "POST";
+      const result = await apiFetch(endpoint, {
+        method,
+        body: JSON.stringify(payload)
+      });
+
+      setSuccess(editingId ? "LINE 綁定已更新完成" : "LINE 綁定已新增完成");
       await load();
+      beginCreate();
+      if (!editingId && result?.item?.id) {
+        setEditingId(result.item.id);
+      }
     } catch (err) {
       setError(err.message || "儲存失敗");
     } finally {
@@ -114,8 +125,10 @@ export default function LineConfigsPage() {
   const testConfig = async (id) => {
     setTestingId(id);
     setError("");
+    setSuccess("");
     try {
       await apiFetch(`/line-configs/${id}/test`, { method: "POST" });
+      setSuccess("綁定驗證成功，已標記為永久綁定");
       await load();
     } catch (err) {
       setError(err.message || "測試失敗");
@@ -125,29 +138,44 @@ export default function LineConfigsPage() {
   };
 
   const removeConfig = async (id) => {
-    if (!confirm("確定要刪除此 LINE 設定嗎？")) return;
+    if (!confirm("確定要刪除這組 LINE 綁定嗎？")) return;
+    setDeletingId(id);
+    setError("");
+    setSuccess("");
     try {
       await apiFetch(`/line-configs/${id}`, { method: "DELETE" });
+      setSuccess("LINE 綁定已刪除");
       await load();
       if (editingId === id) beginCreate();
     } catch (err) {
       setError(err.message || "刪除失敗");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
-    <Shell title="LINE 綁定" subtitle="每個租戶可綁定自己的 LINE Developers 設定，並獨立驗證 webhook。">
+    <Shell
+      title="LINE 綁定"
+      subtitle={isSuperAdmin ? "超級管理員可查看所有租戶的 LINE 綁定設定。" : "請在這裡管理你自己的 LINE Developers 綁定。"}
+    >
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <section className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-100">設定列表</h2>
-              <p className="mt-1 text-sm text-slate-300">可建立多組 LINE Developers 設定，並指定一組預設。</p>
+              <h2 className="text-lg font-semibold text-slate-100">綁定清單</h2>
+              <p className="mt-1 text-sm text-slate-300">已建立的 LINE Developers 綁定會顯示在這裡。</p>
             </div>
             <button onClick={beginCreate} className="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-950">
-              新增設定
+              新增綁定
             </button>
           </div>
+
+          {success ? (
+            <div className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+              {success}
+            </div>
+          ) : null}
 
           <div className="mt-4 space-y-3">
             {loading ? (
@@ -158,6 +186,7 @@ export default function LineConfigsPage() {
                   key={item.id}
                   item={item}
                   testing={testingId === item.id}
+                  deleting={deletingId === item.id}
                   onEdit={() => beginEdit(item)}
                   onTest={() => testConfig(item.id)}
                   onDelete={() => removeConfig(item.id)}
@@ -171,8 +200,8 @@ export default function LineConfigsPage() {
 
         <section className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur sm:p-5">
           <div>
-            <h2 className="text-lg font-semibold text-slate-100">{editingItem ? "編輯設定" : "新增設定"}</h2>
-            <p className="mt-1 text-sm text-slate-300">Secret / Token 只在建立或更新時輸入，畫面會遮罩顯示。</p>
+            <h2 className="text-lg font-semibold text-slate-100">{editingItem ? "編輯綁定" : "新增綁定"}</h2>
+            <p className="mt-1 text-sm text-slate-300">填入 LINE Developers 設定後按儲存即可。測試成功會顯示「已綁定（永久）」。</p>
           </div>
 
           {error ? <div className="mt-4 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{error}</div> : null}
@@ -180,24 +209,50 @@ export default function LineConfigsPage() {
           <form className="mt-4 space-y-4" onSubmit={saveConfig}>
             <Field label="名稱" value={form.configName} onChange={(value) => setForm((prev) => ({ ...prev, configName: value }))} />
             <Field label="Channel ID" value={form.channelId} onChange={(value) => setForm((prev) => ({ ...prev, channelId: value }))} />
-            <Field label="Channel Secret" type="password" value={form.channelSecret} onChange={(value) => setForm((prev) => ({ ...prev, channelSecret: value }))} placeholder={editingItem ? "留空表示不更新" : "輸入 LINE Channel Secret"} />
-            <Field label="Channel Access Token" type="password" value={form.channelAccessToken} onChange={(value) => setForm((prev) => ({ ...prev, channelAccessToken: value }))} placeholder={editingItem ? "留空表示不更新" : "輸入 LINE Access Token"} />
+            <Field
+              label="Channel Secret"
+              type="password"
+              value={form.channelSecret}
+              onChange={(value) => setForm((prev) => ({ ...prev, channelSecret: value }))}
+              placeholder={editingItem ? "留空表示不變更" : "請輸入 LINE Channel Secret"}
+            />
+            <Field
+              label="Channel Access Token"
+              type="password"
+              value={form.channelAccessToken}
+              onChange={(value) => setForm((prev) => ({ ...prev, channelAccessToken: value }))}
+              placeholder={editingItem ? "留空表示不變更" : "請輸入 LINE Access Token"}
+            />
             <Field label="Basic ID" value={form.basicId} onChange={(value) => setForm((prev) => ({ ...prev, basicId: value }))} />
             <Field label="Bot ID" value={form.botId} onChange={(value) => setForm((prev) => ({ ...prev, botId: value }))} />
-            <Field label="Webhook URL" value={form.webhookUrl} onChange={(value) => setForm((prev) => ({ ...prev, webhookUrl: value }))} placeholder="可填 LINE Developers 或服務專屬網址" />
-            <Field label="Webhook Token" value={form.webhookToken} onChange={(value) => setForm((prev) => ({ ...prev, webhookToken: value }))} placeholder="留空會自動產生" />
+            <Field
+              label="Webhook URL"
+              value={form.webhookUrl}
+              onChange={(value) => setForm((prev) => ({ ...prev, webhookUrl: value }))}
+              placeholder="例如：https://line-group-manager-api.onrender.com/api/webhooks/line"
+            />
+            <Field
+              label="Webhook Token"
+              value={form.webhookToken}
+              onChange={(value) => setForm((prev) => ({ ...prev, webhookToken: value }))}
+              placeholder="留空系統會自動產生"
+            />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Toggle label="啟用" checked={form.isActive} onChange={(checked) => setForm((prev) => ({ ...prev, isActive: checked }))} />
-              <Toggle label="預設設定" checked={form.isDefault} onChange={(checked) => setForm((prev) => ({ ...prev, isDefault: checked }))} />
+              <Toggle label="設為預設" checked={form.isDefault} onChange={(checked) => setForm((prev) => ({ ...prev, isDefault: checked }))} />
             </div>
 
             <div className="flex gap-3">
-              <button type="submit" disabled={saving} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-60">
-                {saving ? "儲存中..." : editingItem ? "更新設定" : "建立設定"}
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-60"
+              >
+                {saving ? "儲存中..." : editingItem ? "儲存變更" : "確認新增"}
               </button>
               <button type="button" onClick={beginCreate} className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-200">
-                清除
+                清空
               </button>
             </div>
           </form>
@@ -207,7 +262,7 @@ export default function LineConfigsPage() {
   );
 }
 
-function ConfigCard({ item, testing, onEdit, onTest, onDelete }) {
+function ConfigCard({ item, testing, deleting, onEdit, onTest, onDelete }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -221,10 +276,13 @@ function ConfigCard({ item, testing, onEdit, onTest, onDelete }) {
             <span className={`rounded-full px-3 py-1 text-xs ${item.status === "VERIFIED" ? "bg-cyan-400/15 text-cyan-100" : item.status === "FAILED" ? "bg-rose-400/15 text-rose-100" : "bg-slate-600/30 text-slate-200"}`}>
               {statusLabel(item.status)}
             </span>
+            {item.status === "VERIFIED" ? (
+              <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs text-emerald-100">已綁定（永久）</span>
+            ) : null}
           </div>
           <div className="mt-2 text-sm text-slate-300">Channel ID：{item.channelId}</div>
           <div className="mt-1 text-xs text-slate-400">
-            Webhook：{item.webhookUrl || "未設定"} · Token：{item.webhookToken || "自動產生"}
+            Webhook：{item.webhookUrl || "未填"} ｜ Token：{item.webhookToken || "未設定"}
           </div>
         </div>
       </div>
@@ -233,11 +291,19 @@ function ConfigCard({ item, testing, onEdit, onTest, onDelete }) {
         <button onClick={onEdit} className="rounded-2xl border border-white/10 px-3 py-2 text-sm text-slate-100">
           編輯
         </button>
-        <button onClick={onTest} disabled={testing} className="rounded-2xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-100 disabled:opacity-60">
+        <button
+          onClick={onTest}
+          disabled={testing}
+          className="rounded-2xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-100 disabled:opacity-60"
+        >
           {testing ? "測試中..." : "測試"}
         </button>
-        <button onClick={onDelete} className="rounded-2xl border border-rose-400/30 px-3 py-2 text-sm text-rose-100">
-          刪除
+        <button
+          onClick={onDelete}
+          disabled={deleting}
+          className="rounded-2xl border border-rose-400/30 px-3 py-2 text-sm text-rose-100 disabled:opacity-60"
+        >
+          {deleting ? "刪除中..." : "刪除"}
         </button>
       </div>
     </div>
@@ -279,7 +345,7 @@ function Toggle({ label, checked, onChange }) {
 function EmptyState() {
   return (
     <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/30 px-4 py-10 text-center text-sm text-slate-400">
-      目前沒有 LINE Developers 設定，請先新增一組。
+      尚未建立任何 LINE 綁定，請先新增一筆。
     </div>
   );
 }

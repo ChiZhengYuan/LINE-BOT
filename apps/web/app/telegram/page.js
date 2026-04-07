@@ -9,6 +9,7 @@ export default function TelegramSettingsPage() {
   const router = useRouter();
   const user = getUser();
   const canWrite = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramChatIds, setTelegramChatIds] = useState("");
   const [tokenSet, setTokenSet] = useState(false);
@@ -49,7 +50,7 @@ export default function TelegramSettingsPage() {
           telegramChatIds
         })
       });
-      setSuccess("Telegram 設定已儲存");
+      setSuccess("Telegram 已綁定完成");
       await load();
     } catch (err) {
       setError(err.message || "儲存 Telegram 設定失敗");
@@ -59,10 +60,7 @@ export default function TelegramSettingsPage() {
   };
 
   return (
-    <Shell
-      title="Telegram 設定"
-      subtitle="在這裡輸入 Bot Token 與 Chat IDs，手機版表單已改成單欄顯示。"
-    >
+    <Shell title="Telegram 設定" subtitle="在這裡輸入 Telegram Bot Token 與 Chat IDs。">
       {loading ? <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">載入中...</div> : null}
 
       {error ? (
@@ -79,9 +77,12 @@ export default function TelegramSettingsPage() {
 
       <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur sm:p-5">
         <div className="rounded-2xl border border-amber-300/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          <div className="font-semibold">提醒</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">提醒</span>
+            {tokenSet ? <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs text-emerald-100">已綁定（永久）</span> : null}
+          </div>
           <div className="mt-1 leading-6">
-            Telegram Bot Token 與 Chat IDs 是兩個不同欄位。Bot Token 用來連 Telegram，Chat IDs 用來指定要接收通知的地方。
+            Telegram Bot Token 用來送出通知，Telegram Chat IDs 用來指定要接收通知的群組或私人聊天。
           </div>
         </div>
 
@@ -89,7 +90,7 @@ export default function TelegramSettingsPage() {
           <label className="block text-sm text-slate-300">
             Telegram Bot Token
             <div className="mt-1 text-xs leading-5 text-slate-500">
-              {tokenSet ? "目前已設定，若留空則維持原本的 Token。" : "尚未設定，請輸入 Telegram Bot Token。"}
+              {tokenSet ? "目前已有 Telegram Bot Token，重新儲存會覆蓋舊設定。" : "請輸入 Telegram Bot Token。"}
             </div>
             <input
               className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm text-slate-100 outline-none ring-0 transition placeholder:text-slate-500 focus:border-cyan-300/50 disabled:opacity-50"
@@ -118,7 +119,7 @@ export default function TelegramSettingsPage() {
             disabled={!canWrite || saving}
             className="rounded-2xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 disabled:opacity-50"
           >
-            {saving ? "儲存中..." : "儲存 Telegram 設定"}
+            {saving ? "儲存中..." : "確認"}
           </button>
         </form>
       </div>
