@@ -150,8 +150,16 @@ autoRepliesRouter.patch("/:ruleId", requireAuth, requireRole("ADMIN", "MANAGER")
 });
 
 autoRepliesRouter.delete("/:ruleId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
-  const item = await prisma.autoReplyRule.delete({
+  const item = await prisma.autoReplyRule.findUnique({
     where: { id: req.params.ruleId }
+  });
+
+  if (!item) {
+    return res.status(404).json({ message: "Auto reply rule not found" });
+  }
+
+  await prisma.autoReplyRule.delete({
+    where: { id: item.id }
   });
 
   await logOperation({
