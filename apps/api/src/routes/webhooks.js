@@ -77791,7 +77791,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
       buildProtectionStatusMessage(refreshedGroup, refreshedGroup?.groupSetting, refreshedGroup?.ruleSetting, refreshedGroup?.welcomeSetting);
 
     await sendConversationMessage({
-      groupId: group.lineGroupId,
+      lineConversationId: group.lineGroupId,
       replyToken,
       text: confirmation,
       accessToken: lineConfig?.channelAccessToken || undefined
