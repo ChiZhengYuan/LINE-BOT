@@ -29,14 +29,14 @@ export default function AiPage() {
     apiFetch("/violations/ai")
       .then((data) => setRows(data.assessments || []))
       .catch((err) => {
-        setError(err.message || "無法載入 AI 紀錄");
+        setError(err.message || "讀取 AI 紀錄失敗");
         router.replace("/login");
       })
       .finally(() => setLoading(false));
   }, [router]);
 
   return (
-    <Shell title="AI 判斷紀錄" subtitle="risk_score、category、reason、confidence 都已改成中文顯示。">
+    <Shell title="AI 判斷紀錄" subtitle="這裡會顯示風險分數、分類、原因與信心值。">
       {error ? (
         <div className="mb-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           {error}
@@ -47,30 +47,35 @@ export default function AiPage() {
         {loading ? <LoadingCard /> : null}
 
         {rows.map((item) => (
-          <article key={item.id} className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
-            <div className="flex flex-wrap items-center gap-3 text-sm">
+          <article key={item.id} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur sm:p-5">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge tone="cyan">{labelOf(CATEGORY_LABELS, item.category)}</Badge>
-              <span className="text-slate-400">{formatTime(item.createdAt)}</span>
-              <span className="text-slate-500">{item.group?.name || item.group?.lineGroupId || "未命名群組"}</span>
+              <Badge tone="emerald">{formatConfidence(item.confidence)}</Badge>
+              <span className="text-xs text-slate-400">{formatTime(item.createdAt)}</span>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-4">
-              <Block label="風險分數" value={Math.round(item.riskScore)} />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Block label="風險分數" value={Math.round(item.riskScore || 0)} />
               <Block label="信心值" value={formatConfidence(item.confidence)} />
-              <Block label="發言者 userId" value={item.lineUserId || "未知"} />
-              <Block label="訊息內容" value={item.messageLog?.content || "無內容"} />
+              <Block label="發言者 userId" value={item.lineUserId || "無"} />
+              <Block label="群組" value={item.group?.name || item.group?.lineGroupId || "未命名群組"} />
             </div>
 
             <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
               <div className="text-xs uppercase tracking-[0.2em] text-slate-500">原因</div>
               <p className="mt-2 text-sm leading-6 text-slate-100">{item.reason || "無"}</p>
             </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-slate-500">訊息內容</div>
+              <p className="mt-2 text-sm leading-6 text-slate-200">{item.messageLog?.content || "無"}</p>
+            </div>
           </article>
         ))}
 
         {!loading && rows.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-8 text-center text-slate-400">
-            目前沒有 AI 判斷紀錄
+            目前沒有 AI 判斷紀錄。
           </div>
         ) : null}
       </div>
