@@ -137,18 +137,28 @@ export function Shell({ children, title, subtitle }) {
               </div>
 
               <div className="flex items-center gap-2">
-                <Link
-                  href="/notifications"
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await apiFetch("/notifications", { method: "DELETE" });
+                      setUnreadCount(0);
+                    } catch {
+                      // ignore
+                    } finally {
+                      router.push("/notifications");
+                    }
+                  }}
                   className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-900"
-                  aria-label="通知中心"
+                  aria-label="??????"
                 >
-                  🔔
+                  ??
                   {mounted && unreadCount > 0 ? (
                     <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   ) : null}
-                </Link>
+                </button>
                 <button
                   onClick={logout}
                   className="shrink-0 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-slate-100 hover:bg-slate-900 sm:px-4 sm:py-2.5 sm:text-sm lg:hidden"
