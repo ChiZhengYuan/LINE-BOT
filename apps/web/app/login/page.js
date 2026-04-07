@@ -109,7 +109,7 @@ export default function LoginPage() {
             </button>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300">
-              預設帳密會從後端設定讀取，若你有修改 `.env`，請使用新的管理員資訊登入。
+              有任何問題請加開發者LINE:nostalgai。
             </div>
           </form>
         </div>
