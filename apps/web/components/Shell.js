@@ -31,7 +31,7 @@ export function Shell({ children, title, subtitle }) {
 
   return (
     <div className="min-h-screen text-slate-100">
-      <div className="mx-auto flex min-h-screen max-w-7xl gap-6 px-4 py-6 lg:px-8">
+      <div className="mx-auto min-h-screen max-w-7xl px-3 py-3 sm:px-4 sm:py-4 lg:flex lg:gap-6 lg:px-8 lg:py-6">
         <aside className="hidden w-64 shrink-0 lg:block">
           <div className="sticky top-6 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
             <div className="mb-6 flex items-center gap-3">
@@ -79,19 +79,43 @@ export function Shell({ children, title, subtitle }) {
           </div>
         </aside>
 
-        <main className="flex-1">
-          <div className="mb-6 flex items-center justify-between rounded-3xl border border-white/10 bg-white/5 px-5 py-4 shadow-glow backdrop-blur">
-            <div>
-              <h1 className="text-2xl font-semibold">{title}</h1>
-              <p className="mt-1 text-sm text-slate-300">{subtitle}</p>
+        <main className="min-w-0 flex-1">
+          <div className="sticky top-3 z-20 mb-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 shadow-glow backdrop-blur sm:top-4 sm:px-5 lg:static">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-semibold sm:text-2xl">{title}</h1>
+                <p className="mt-1 text-xs leading-5 text-slate-300 sm:text-sm">{subtitle}</p>
+              </div>
+              <button
+                onClick={logout}
+                className="shrink-0 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-slate-100 hover:bg-slate-900 sm:px-4 sm:py-2.5 sm:text-sm lg:hidden"
+              >
+                登出
+              </button>
             </div>
-            <button
-              onClick={logout}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 hover:bg-slate-900 lg:hidden"
-            >
-              登出
-            </button>
+
+            <div className="mt-4 lg:hidden">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {navItems.map((item) => {
+                  const active = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm transition ${
+                        active
+                          ? "border-cyan-300/30 bg-cyan-400/15 text-cyan-100"
+                          : "border-white/10 bg-white/5 text-slate-300"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+
           {children}
         </main>
       </div>
