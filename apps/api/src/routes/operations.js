@@ -62,7 +62,7 @@ operationsRouter.delete("/:logId", requireAuth, async (req, res) => {
   });
 
   if (!item) {
-    return res.status(404).json({ message: "Operation log not found" });
+    return res.status(404).json({ message: "找不到操作紀錄" });
   }
 
   await prisma.operationLog.delete({ where: { id: item.id } });

@@ -135,7 +135,7 @@ missionsRouter.delete("/:missionId", requireAuth, requireRole("ADMIN", "MANAGER"
 missionsRouter.post("/:missionId/progress", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
   const payload = req.body || {};
   const mission = await prisma.mission.findUnique({ where: { id: req.params.missionId } });
-  if (!mission) return res.status(404).json({ message: "Mission not found" });
+  if (!mission) return res.status(404).json({ message: "找不到任務" });
 
   const member = await ensureMember({
     group: await prisma.group.findFirst({ where: { id: mission.groupId } }),

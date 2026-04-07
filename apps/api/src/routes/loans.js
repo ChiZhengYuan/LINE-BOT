@@ -99,7 +99,7 @@ loansRouter.post("/cases", requireAuth, requireRole("ADMIN", "MANAGER"), async (
     where: { id: payload.groupId }
   });
   if (!group) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   const result = await createOrUpdateManualLoanCase({
@@ -109,7 +109,7 @@ loansRouter.post("/cases", requireAuth, requireRole("ADMIN", "MANAGER"), async (
   });
 
   if (!result) {
-    return res.status(400).json({ message: "Customer name is required" });
+    return res.status(400).json({ message: "必須輸入客戶姓名" });
   }
 
   res.status(result.created ? 201 : 200).json(result);
@@ -130,7 +130,7 @@ loansRouter.get("/cases/:caseId", requireAuth, async (req, res) => {
   });
 
   if (!item) {
-    return res.status(404).json({ message: "Case not found" });
+    return res.status(404).json({ message: "找不到案件" });
   }
 
   res.json({ item });
@@ -143,7 +143,7 @@ loansRouter.delete("/cases/:caseId", requireAuth, requireRole("ADMIN", "MANAGER"
   });
 
   if (!item) {
-    return res.status(404).json({ message: "Case not found" });
+    return res.status(404).json({ message: "找不到案件" });
   }
 
   await prisma.loanCase.delete({ where: { id: item.id } });
@@ -192,7 +192,7 @@ loansRouter.patch("/cases/:caseId", requireAuth, requireRole("ADMIN", "MANAGER")
   });
 
   if (!updated) {
-    return res.status(404).json({ message: "Case not found" });
+    return res.status(404).json({ message: "找不到案件" });
   }
 
   res.json({ item: updated });
@@ -213,7 +213,7 @@ loansRouter.delete("/daily-reports/:reportId", requireAuth, requireRole("ADMIN",
   });
 
   if (!report) {
-    return res.status(404).json({ message: "Report not found" });
+    return res.status(404).json({ message: "找不到匯報" });
   }
 
   await prisma.dailyCaseReport.delete({ where: { id: report.id } });
@@ -273,7 +273,7 @@ loansRouter.post("/daily-reports/generate", requireAuth, requireRole("ADMIN", "M
 loansRouter.post("/daily-reports/:reportId/send", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
   const report = await sendDailyCaseReport(req.params.reportId);
   if (!report) {
-    return res.status(404).json({ message: "Report not found" });
+    return res.status(404).json({ message: "找不到匯報" });
   }
 
   res.json({ report });
@@ -302,7 +302,7 @@ loansRouter.post("/reminders/:reminderId/send", requireAuth, requireRole("ADMIN"
   });
 
   if (!reminder) {
-    return res.status(404).json({ message: "Reminder not found" });
+    return res.status(404).json({ message: "找不到提醒" });
   }
 
   await pushText(
@@ -357,7 +357,7 @@ loansRouter.get("/reminders/:reminderId", requireAuth, async (req, res) => {
   });
 
   if (!reminder) {
-    return res.status(404).json({ message: "Reminder not found" });
+    return res.status(404).json({ message: "找不到提醒" });
   }
 
   res.json({ reminder });
@@ -370,7 +370,7 @@ loansRouter.delete("/reminders/:reminderId", requireAuth, requireRole("ADMIN", "
   });
 
   if (!reminder) {
-    return res.status(404).json({ message: "Reminder not found" });
+    return res.status(404).json({ message: "找不到提醒" });
   }
 
   await prisma.loanCaseReminder.delete({ where: { id: reminder.id } });
@@ -382,7 +382,7 @@ loansRouter.get("/cases/:caseId/summary", requireAuth, async (req, res) => {
     where: { id: req.params.caseId }
   });
   if (!item) {
-    return res.status(404).json({ message: "Case not found" });
+    return res.status(404).json({ message: "找不到案件" });
   }
 
   res.json({ summary: formatLoanCaseSummary(item) });

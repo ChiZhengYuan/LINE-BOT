@@ -64,7 +64,7 @@ lineConfigsRouter.post("/", requireAuth, async (req, res) => {
 
   const ownerAdminId = getTenantOwnerId(req);
   if (!ownerAdminId && req.user.role !== "SUPER_ADMIN") {
-    return res.status(403).json({ message: "Forbidden" });
+    return res.status(403).json({ message: "無權限" });
   }
 
   const webhookToken = String(payload.webhookToken || cryptoRandom());
@@ -107,10 +107,10 @@ lineConfigsRouter.patch("/:configId", requireAuth, async (req, res) => {
     where: { id: req.params.configId }
   });
   if (!current) {
-    return res.status(404).json({ message: "Config not found" });
+    return res.status(404).json({ message: "找不到設定" });
   }
   if (ownerAdminId && current.ownerAdminId !== ownerAdminId) {
-    return res.status(403).json({ message: "Forbidden" });
+    return res.status(403).json({ message: "無權限" });
   }
 
   const data = {};
@@ -146,10 +146,10 @@ lineConfigsRouter.delete("/:configId", requireAuth, async (req, res) => {
     where: { id: req.params.configId }
   });
   if (!current) {
-    return res.status(404).json({ message: "Config not found" });
+    return res.status(404).json({ message: "找不到設定" });
   }
   if (ownerAdminId && current.ownerAdminId !== ownerAdminId) {
-    return res.status(403).json({ message: "Forbidden" });
+    return res.status(403).json({ message: "無權限" });
   }
 
   await prisma.lineDeveloperConfig.delete({ where: { id: current.id } });
@@ -162,10 +162,10 @@ lineConfigsRouter.post("/:configId/test", requireAuth, async (req, res) => {
     where: { id: req.params.configId }
   });
   if (!config) {
-    return res.status(404).json({ message: "Config not found" });
+    return res.status(404).json({ message: "找不到設定" });
   }
   if (ownerAdminId && config.ownerAdminId !== ownerAdminId) {
-    return res.status(403).json({ message: "Forbidden" });
+    return res.status(403).json({ message: "無權限" });
   }
 
   const verified = await prisma.lineDeveloperConfig.update({

@@ -49,7 +49,7 @@ adminsRouter.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
     return res.status(400).json({ message: "帳號或 Email 至少要填一個" });
   }
   if (!payload.password) {
-    return res.status(400).json({ message: "password is required" });
+    return res.status(400).json({ message: "必須輸入密碼" });
   }
 
   const role = payload.role || "ADMIN";
@@ -151,7 +151,7 @@ adminsRouter.post("/:adminId/renew", requireAuth, requireSuperAdmin, async (req,
 
 adminsRouter.delete("/:adminId", requireAuth, requireSuperAdmin, async (req, res) => {
   if (req.user.sub === req.params.adminId) {
-    return res.status(400).json({ message: "You cannot delete yourself" });
+    return res.status(400).json({ message: "無法刪除自己" });
   }
 
   await prisma.adminUser.delete({ where: { id: req.params.adminId } });

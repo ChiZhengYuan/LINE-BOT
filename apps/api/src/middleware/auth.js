@@ -6,14 +6,14 @@ export function requireAuth(req, res, next) {
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ message: "Missing token" });
+    return res.status(401).json({ message: "缺少驗證權杖" });
   }
 
   try {
     req.user = jwt.verify(token, env.jwtSecret);
     return next();
   } catch {
-    return res.status(401).json({ message: "Invalid token" });
+    return res.status(401).json({ message: "驗證權杖無效" });
   }
 }
 

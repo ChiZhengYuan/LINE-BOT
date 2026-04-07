@@ -3070,7 +3070,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
 
 
 
-      return res.status(404).json({ message: "Webhook config not found" });
+      return res.status(404).json({ message: "找不到 Webhook 設定" });
 
 
 
@@ -3838,7 +3838,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
 
 
 
-      return res.status(401).json({ message: "Invalid signature" });
+      return res.status(401).json({ message: "Webhook 簽章無效" });
 
 
 

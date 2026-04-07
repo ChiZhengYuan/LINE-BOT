@@ -138,7 +138,7 @@ lotteriesRouter.delete("/:lotteryId", requireAuth, requireRole("ADMIN", "MANAGER
 lotteriesRouter.post("/:lotteryId/enter", requireAuth, async (req, res) => {
   const payload = req.body || {};
   const lottery = await prisma.lottery.findUnique({ where: { id: req.params.lotteryId } });
-  if (!lottery) return res.status(404).json({ message: "Lottery not found" });
+  if (!lottery) return res.status(404).json({ message: "找不到抽獎活動" });
 
   const group = await prisma.group.findFirst({ where: { id: lottery.groupId } });
   const member = await ensureMember({ group, lineUserId: payload.lineUserId, displayName: payload.displayName });
@@ -178,7 +178,7 @@ lotteriesRouter.post("/:lotteryId/draw", requireAuth, requireRole("ADMIN", "MANA
     where: { id: req.params.lotteryId },
     include: { entries: { include: { member: true } }, group: true, winners: true }
   });
-  if (!lottery) return res.status(404).json({ message: "Lottery not found" });
+  if (!lottery) return res.status(404).json({ message: "找不到抽獎活動" });
 
   const existingWinners = new Set(lottery.winners.map((winner) => winner.memberId));
   const available = lottery.entries.filter((entry) => !existingWinners.has(entry.memberId));

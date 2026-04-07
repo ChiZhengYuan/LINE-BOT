@@ -25,6 +25,7 @@ notificationsRouter.get("/", requireAuth, async (req, res) => {
   if (query.type) where.type = query.type;
   if (query.isRead === "true") where.isRead = true;
   if (query.isRead === "false") where.isRead = false;
+  const unreadWhere = applyTenantWhere(req, { isRead: false });
 
   const page = query.page || 1;
   const limit = query.limit || 20;
@@ -38,14 +39,14 @@ notificationsRouter.get("/", requireAuth, async (req, res) => {
       take: limit
     }),
     prisma.notification.count({ where }),
-    prisma.notification.count({ where: { isRead: false } })
+    prisma.notification.count({ where: unreadWhere })
   ]);
 
   res.json({ items, total, unreadCount, page, limit });
 });
 
 notificationsRouter.get("/unread-count", requireAuth, async (req, res) => {
-  const unreadCount = await prisma.notification.count({ where: { isRead: false } });
+  const unreadCount = await prisma.notification.count({ where: applyTenantWhere(req, { isRead: false }) });
   res.json({ unreadCount });
 });
 
@@ -55,7 +56,7 @@ notificationsRouter.post("/:notificationId/read", requireAuth, async (req, res) 
 });
 
 notificationsRouter.post("/read-all", requireAuth, async (req, res) => {
-  const result = await markAllNotificationsRead();
+  const result = await markAllNotificationsRead(req);
   res.json({ result });
 });
 
@@ -67,7 +68,7 @@ notificationsRouter.delete("/:notificationId", requireAuth, async (req, res) => 
   });
 
   if (!item) {
-    return res.status(404).json({ message: "Notification not found" });
+    return res.status(404).json({ message: "找不到通知" });
   }
 
   await prisma.notification.delete({ where: { id: item.id } });

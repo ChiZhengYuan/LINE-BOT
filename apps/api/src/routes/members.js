@@ -87,7 +87,7 @@ membersRouter.get("/:memberId", requireAuth, async (req, res) => {
   });
 
   if (!item) {
-    return res.status(404).json({ message: "Member not found" });
+    return res.status(404).json({ message: "找不到成員" });
   }
 
   res.json({ item });
@@ -105,7 +105,7 @@ membersRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req
     }
   });
   if (!group) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   const item = await prisma.member.upsert({
@@ -156,7 +156,7 @@ membersRouter.patch("/:memberId", requireAuth, requireRole("ADMIN", "MANAGER"), 
     }
   });
   if (!current) {
-    return res.status(404).json({ message: "Member not found" });
+    return res.status(404).json({ message: "找不到成員" });
   }
 
   const payload = req.body || {};

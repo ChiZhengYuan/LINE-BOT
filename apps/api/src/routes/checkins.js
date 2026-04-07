@@ -62,7 +62,7 @@ checkinsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (re
 
   const group = await prisma.group.findFirst({ where: { id: data.groupId } });
   if (!group) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   const member = await ensureMember({ group, lineUserId: data.lineUserId, displayName: data.displayName || undefined });

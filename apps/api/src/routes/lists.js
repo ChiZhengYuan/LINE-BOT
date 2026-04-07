@@ -22,13 +22,13 @@ listsRouter.delete("/:kind/:id", requireAuth, async (req, res) => {
   if (kind === "blacklist") {
     const item = await prisma.blacklistEntry.findUnique({ where: { id } });
     if (!item || (ownerAdminId && item.ownerAdminId !== ownerAdminId)) {
-      return res.status(404).json({ message: "Item not found" });
+      return res.status(404).json({ message: "找不到項目" });
     }
     await prisma.blacklistEntry.delete({ where: { id } });
   } else {
     const item = await prisma.whitelistEntry.findUnique({ where: { id } });
     if (!item || (ownerAdminId && item.ownerAdminId !== ownerAdminId)) {
-      return res.status(404).json({ message: "Item not found" });
+      return res.status(404).json({ message: "找不到項目" });
     }
     await prisma.whitelistEntry.delete({ where: { id } });
   }

@@ -94,7 +94,7 @@ export function Shell({ children, title, subtitle }) {
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={item.href} scroll={false}
                     className={`block rounded-2xl px-4 py-3 text-sm transition ${
                       active
                         ? "bg-cyan-400/15 text-cyan-200 ring-1 ring-cyan-300/20"
@@ -120,7 +120,7 @@ export function Shell({ children, title, subtitle }) {
           <div className="sticky top-3 z-20 mb-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 shadow-glow backdrop-blur sm:top-4 sm:px-5 lg:static">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
-                <Link href="/dashboard" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="LINE Group Manager">
+                <Link href="/dashboard" scroll={false} className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="LINE Group Manager">
                   <Image
                     src="/brand-logo.png"
                     alt="LINE Group Manager logo"
@@ -150,7 +150,7 @@ export function Shell({ children, title, subtitle }) {
                     }
                   }}
                   className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-900"
-                  aria-label="????"
+                  aria-label="通知中心"
                 >
                   <svg
                     aria-hidden="true"
@@ -187,7 +187,7 @@ export function Shell({ children, title, subtitle }) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={item.href} scroll={false}
                       className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm transition ${
                         active
                           ? "border-cyan-300/30 bg-cyan-400/15 text-cyan-100"

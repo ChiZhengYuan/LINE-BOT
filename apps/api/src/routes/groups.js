@@ -179,7 +179,7 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
   });
 
   if (!group) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   res.json({ group });
@@ -197,7 +197,7 @@ groupsRouter.patch("/:groupId", requireAuth, requireRole("ADMIN", "MANAGER"), as
     }
   });
   if (!current) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   if (typeof payload.lineGroupId === "string") {
@@ -239,7 +239,7 @@ groupsRouter.delete("/:groupId", requireAuth, requireRole("ADMIN"), async (req, 
     }
   });
   if (!current) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   await prisma.group.delete({ where: { id: current.id } });
@@ -264,7 +264,7 @@ groupsRouter.get("/:groupId/rules", requireAuth, async (req, res) => {
     }
   });
   if (!group) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   const rule = await prisma.ruleSetting.findUnique({
@@ -283,7 +283,7 @@ groupsRouter.put("/:groupId/rules", requireAuth, requireRole("ADMIN", "MANAGER")
     }
   });
   if (!currentGroup) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   const current = await prisma.ruleSetting.findUnique({
@@ -351,7 +351,7 @@ groupsRouter.get("/:groupId/settings", requireAuth, async (req, res) => {
     }
   });
   if (!group) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   const { groupSetting, welcomeSetting } = await ensureGroupSettings(req.params.groupId);
@@ -370,7 +370,7 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
     }
   });
   if (!group) {
-    return res.status(404).json({ message: "Group not found" });
+    return res.status(404).json({ message: "找不到群組" });
   }
 
   const currentSetting = await prisma.groupSetting.upsert({

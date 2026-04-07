@@ -107,7 +107,7 @@ autoRepliesRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async 
 autoRepliesRouter.post("/groups/:groupId/enable", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
   const groupId = String(req.params.groupId || "").trim();
   if (!groupId) {
-    return res.status(400).json({ message: "Group ID is required" });
+    return res.status(400).json({ message: "必須輸入群組 ID" });
   }
 
   const settings = await prisma.groupSetting.upsert({
@@ -190,7 +190,7 @@ autoRepliesRouter.delete("/:ruleId", requireAuth, requireRole("ADMIN", "MANAGER"
   });
 
   if (!item) {
-    return res.status(404).json({ message: "Auto reply rule not found" });
+    return res.status(404).json({ message: "找不到關鍵字回覆規則" });
   }
 
   await prisma.autoReplyRule.delete({

@@ -21,7 +21,16 @@ export default function GroupsPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState(emptyForm);
 
+  const groupMap = useMemo(() => Object.fromEntries(groups.map((item) => [item.id, item])), [groups]);
+
+  const getGroupLabel = (groupId) => {
+    if (!groupId) return '目前群組';
+    const item = groupMap[groupId];
+    return item?.name || item?.lineGroupId || '目前群組';
+  };
+
   const stats = useMemo(() => {
+
     const active = groups.filter((group) => group.isActive).length;
     return {
       total: groups.length,
@@ -212,6 +221,25 @@ export default function GroupsPage() {
                   <Info label="違規數" value={group._count?.violations ?? 0} />
                   <Info label="訊息數" value={group._count?.messages ?? 0} />
                   <Info label="待處理" value={group._count?.pendingActions ?? 0} />
+                </div>
+
+                <div className="rounded-2xl border border-cyan-300/15 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-50">
+                  <div className="text-xs uppercase tracking-[0.2em] text-cyan-200/70">保護狀態設定</div>
+                  <div className="mt-1 font-medium text-slate-50">
+                    {group.groupSetting?.protectionStatusTargetLineGroupId
+                      ? `輸出到：${getGroupLabel(group.groupSetting.protectionStatusTargetLineGroupId)}`
+                      : '輸出到：目前群組'}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/groups/${group.id}`}
+                    scroll={false}
+                    className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+                  >
+                    保護狀態設定
+                  </Link>
                 </div>
 
                 {latestAction ? (

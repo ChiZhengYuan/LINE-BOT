@@ -98,7 +98,7 @@ announcementsRouter.get("/:announcementId", requireAuth, async (req, res) => {
     include: { group: true, jobs: { orderBy: { createdAt: "desc" } } }
   });
 
-  if (!item) return res.status(404).json({ message: "Announcement not found" });
+  if (!item) return res.status(404).json({ message: "找不到公告" });
   res.json({ item });
 });
 
@@ -149,7 +149,7 @@ announcementsRouter.post("/:announcementId/send", requireAuth, requireRole("ADMI
       include: { group: true }
     });
 
-    if (!item) return res.status(404).json({ message: "Announcement not found" });
+    if (!item) return res.status(404).json({ message: "找不到公告" });
 
     const targets = item.targetGroupIds?.length ? item.targetGroupIds : [item.group.lineGroupId];
     const message = buildAnnouncementMessage(item);
