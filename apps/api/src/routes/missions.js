@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
-import { parseBody, parseQuery } from "../lib/validation.js";
+import { datetimeInput, parseBody, parseQuery } from "../lib/validation.js";
 import { ensureMember, logOperation, rebuildRankingsForGroup } from "../services/activity.js";
 
 export const missionsRouter = express.Router();
@@ -24,8 +24,8 @@ const bodySchema = z.object({
   targetCount: z.coerce.number().int().min(1),
   keyword: z.string().optional().nullable(),
   pointsReward: z.coerce.number().int().min(0).default(0),
-  startAt: z.string().datetime().optional().nullable(),
-  dueAt: z.string().datetime().optional().nullable(),
+  startAt: datetimeInput(),
+  dueAt: datetimeInput(),
   isActive: z.boolean().optional()
 });
 
@@ -194,4 +194,3 @@ missionsRouter.post("/:missionId/progress", requireAuth, requireRole("ADMIN", "M
 
   res.json({ item: current });
 });
-

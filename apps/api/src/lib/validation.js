@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export function parseBody(schema, req, res) {
   const result = schema.safeParse(req.body ?? {});
   if (!result.success) {
@@ -7,6 +9,24 @@ export function parseBody(schema, req, res) {
   }
 
   return result.data;
+}
+
+export function datetimeInput() {
+  return z.preprocess((value) => {
+    if (value === "" || value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (value instanceof Date) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      return new Date(value);
+    }
+
+    return value;
+  }, z.date().optional().nullable());
 }
 
 export function parseQuery(schema, req, res) {

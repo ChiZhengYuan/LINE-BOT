@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
-import { parseBody, parseQuery } from "../lib/validation.js";
+import { datetimeInput, parseBody, parseQuery } from "../lib/validation.js";
 import { createNotification, ensureMember, logOperation, rebuildRankingsForGroup } from "../services/activity.js";
 import { pushText } from "../services/line.js";
 
@@ -21,11 +21,11 @@ const bodySchema = z.object({
   groupId: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  startAt: z.string().datetime().optional().nullable(),
-  endAt: z.string().datetime().optional().nullable(),
+  startAt: datetimeInput(),
+  endAt: datetimeInput(),
   quota: z.coerce.number().int().min(0).default(0),
   maxWinners: z.coerce.number().int().min(1).default(1),
-  autoDrawAt: z.string().datetime().optional().nullable(),
+  autoDrawAt: datetimeInput(),
   isActive: z.boolean().optional(),
   status: z.enum(["DRAFT", "ACTIVE", "ENDED", "DRAWN", "CANCELLED"]).optional()
 });

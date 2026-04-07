@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
-import { parseBody, parseQuery } from "../lib/validation.js";
+import { datetimeInput, parseBody, parseQuery } from "../lib/validation.js";
 import { createNotification, logOperation } from "../services/activity.js";
 import { pushText } from "../services/line.js";
 
@@ -23,9 +23,9 @@ const bodySchema = z.object({
   content: z.string().min(1),
   scheduleType: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY"]).default("ONCE"),
   targetGroupIds: z.array(z.string()).optional().default([]),
-  startAt: z.string().datetime().optional().nullable(),
-  endAt: z.string().datetime().optional().nullable(),
-  nextRunAt: z.string().datetime().optional().nullable(),
+  startAt: datetimeInput(),
+  endAt: datetimeInput(),
+  nextRunAt: datetimeInput(),
   isActive: z.boolean().optional(),
   flexMessage: z.any().optional().nullable()
 });
@@ -201,4 +201,3 @@ announcementsRouter.post("/:announcementId/send", requireAuth, requireRole("ADMI
 function buildAnnouncementMessage(item) {
   return `📢 ${item.title}\n\n${item.content}`;
 }
-
