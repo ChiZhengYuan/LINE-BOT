@@ -75,7 +75,7 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis,
       try {
         await pushText(group.lineGroupId, notice, accessToken);
       } catch (error) {
-        console.error("Failed to push group notification", error);
+    console.error("推送群組通知失敗", error);
       }
     }
   }
@@ -89,7 +89,7 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis,
       try {
         await pushText(adminId, buildAdminNotice(group, analysis), accessToken);
       } catch (error) {
-        console.error("Failed to push LINE admin notification", error);
+    console.error("推送 LINE 管理員通知失敗", error);
       }
     }
 
@@ -102,7 +102,7 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis,
       try {
         await sendTelegramMessage(chatId, buildAdminNotice(group, analysis));
       } catch (error) {
-        console.error("Failed to push Telegram notification", error);
+    console.error("推送 Telegram 通知失敗", error);
       }
     }
   }

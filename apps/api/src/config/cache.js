@@ -38,8 +38,8 @@ export async function getCacheClient() {
   }
 
   const redis = createClient({ url: env.redisUrl });
-  redis.on("error", (error) => {
-    console.warn("Redis error:", error.message);
+    redis.on("error", (error) => {
+      console.warn("Redis 錯誤：", error.message);
   });
 
   try {
@@ -59,7 +59,7 @@ export async function getCacheClient() {
     };
     return client;
   } catch (error) {
-    console.warn("Redis unavailable, falling back to in-memory cache:", error.message);
+    console.warn("Redis 不可用，改用記憶體快取：", error.message);
     client = new MemoryCache();
     return client;
   }

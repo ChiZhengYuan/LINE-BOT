@@ -3,7 +3,7 @@ import { z } from "zod";
 export function parseBody(schema, req, res) {
   const result = schema.safeParse(req.body ?? {});
   if (!result.success) {
-    const message = result.error.issues[0]?.message || "Invalid request";
+  const message = result.error.issues[0]?.message || "無效的請求";
     res.status(400).json({ message });
     return null;
   }
@@ -32,7 +32,7 @@ export function datetimeInput() {
 export function parseQuery(schema, req, res) {
   const result = schema.safeParse(req.query ?? {});
   if (!result.success) {
-    const message = result.error.issues[0]?.message || "Invalid request";
+  const message = result.error.issues[0]?.message || "無效的請求";
     res.status(400).json({ message });
     return null;
   }

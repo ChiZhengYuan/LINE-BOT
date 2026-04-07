@@ -23,6 +23,6 @@ export async function sendTelegramMessage(chatId, text) {
 
   if (!response.ok) {
     const details = await response.text().catch(() => "");
-    throw new Error(`Telegram sendMessage failed: ${response.status} ${details}`);
+    throw new Error(`Telegram sendMessage 失敗：${response.status} ${details}`);
   }
 }

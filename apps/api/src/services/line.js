@@ -9,7 +9,7 @@ function resolveAccessToken(accessTokenOverride) {
 async function sendLineRequest(path, body, accessTokenOverride) {
   const accessToken = resolveAccessToken(accessTokenOverride);
   if (!accessToken) {
-    throw new Error("LINE access token is missing");
+    throw new Error("缺少 LINE 存取權杖");
   }
 
   const response = await fetch(`${LINE_API}${path}`, {
@@ -23,7 +23,7 @@ async function sendLineRequest(path, body, accessTokenOverride) {
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(`LINE API request failed (${response.status}): ${errorText || response.statusText}`);
+    throw new Error(`LINE API 請求失敗（${response.status}）：${errorText || response.statusText}`);
   }
 
   return response;
@@ -69,7 +69,7 @@ export async function getProfile(userId, accessTokenOverride) {
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(`LINE profile request failed (${response.status}): ${errorText || response.statusText}`);
+    throw new Error(`LINE 個人資料請求失敗（${response.status}）：${errorText || response.statusText}`);
   }
 
   return response.json();

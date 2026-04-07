@@ -9,12 +9,12 @@ export function startAdminLifecycleScheduler() {
   const intervalMs = 30 * 60 * 1000;
   timer = setInterval(() => {
     runAdminLifecycleTick().catch((error) => {
-      console.error("[adminLifecycle] tick failed", error);
+  console.error("[adminLifecycle] 週期檢查失敗", error);
     });
   }, intervalMs);
 
   runAdminLifecycleTick().catch((error) => {
-    console.error("[adminLifecycle] initial tick failed", error);
+  console.error("[adminLifecycle] 初始檢查失敗", error);
   });
 }
 

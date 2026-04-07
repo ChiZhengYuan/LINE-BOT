@@ -77,7 +77,7 @@ export async function analyzeAiRisk({ content, matches, spamCount }) {
     });
 
     if (!response.ok) {
-      throw new Error(`AI request failed with ${response.status}`);
+    throw new Error(`AI 請求失敗，狀態碼：${response.status}`);
     }
 
     const payload = await response.json();
@@ -85,7 +85,7 @@ export async function analyzeAiRisk({ content, matches, spamCount }) {
     const parsed = safeParseJson(message);
 
     if (!parsed) {
-      throw new Error("AI response was not valid JSON");
+    throw new Error("AI 回應不是有效的 JSON");
     }
 
     return normalizeAiPayload(parsed, content, matches, spamCount);

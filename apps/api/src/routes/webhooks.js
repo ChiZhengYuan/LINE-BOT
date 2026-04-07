@@ -20350,7 +20350,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
 
 
 
-          console.error("Failed to send warning message:", error?.message || error);
+    console.error("傳送警告訊息失敗：", error?.message || error);
 
 
 
@@ -26622,7 +26622,7 @@ async function handleMemberJoined(event, ownerAdminId = null, accessToken = null
 
 
 
-        console.error("Failed to send welcome message:", error?.message || error);
+    console.error("傳送歡迎訊息失敗：", error?.message || error);
 
 
 
@@ -50174,7 +50174,7 @@ async function handleAutoReply(group, content, replyToken, accessToken = null) {
 
 
 
-      console.error("Failed to send auto-reply message:", error?.message || error);
+    console.error("傳送自動回覆訊息失敗：", error?.message || error);
 
 
 
@@ -77840,7 +77840,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
     ]);
 
     if (!supportedFields.has(toggleField)) {
-      return res.status(400).json({ ok: false, error: "Unsupported group setting field" });
+    return res.status(400).json({ ok: false, error: "不支援的群組設定欄位" });
     }
 
     await prisma.$executeRaw`
@@ -97334,7 +97334,7 @@ async function sendConversationMessage({ lineConversationId, replyToken, text, a
 
 
 
-      console.warn("LINE reply failed, fallback to push:", error?.message || error);
+    console.warn("LINE 回覆失敗，改用推播：", error?.message || error);
 
 
 
