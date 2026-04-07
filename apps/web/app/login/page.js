@@ -109,13 +109,15 @@ export default function LoginPage() {
               {loading ? "登入中..." : "登入後台"}
             </button>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300">
-              <div className="mb-3">有任何問題請聯繫開發人員</div>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-sm leading-6 text-slate-300">
+              <div className="text-base font-semibold text-slate-100">有任何問題請聯繫開發人員</div>
+              <div className="mt-2 text-xs tracking-[0.2em] text-slate-400">LINE GROUP MANAGER</div>
+              <div className="mt-1 text-xs text-slate-500">Copyright © 2026 Yuan. All Rights Reserved.</div>
               <a
                 href="https://line.me/ti/p/LU8wTJb3wF"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+                className="mt-4 inline-flex items-center justify-center rounded-full bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
               >
                 聯繫開發人員
               </a>
@@ -126,3 +128,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
