@@ -110,7 +110,15 @@ export default function LoginPage() {
             </button>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300">
-              有任何問題請加開發者LINE:nostalgai。
+              <div className="mb-3">有任何問題請聯繫開發人員</div>
+              <a
+                href="https://line.me/ti/p/LU8wTJb3wF"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+              >
+                聯繫開發人員
+              </a>
             </div>
           </form>
         </div>
