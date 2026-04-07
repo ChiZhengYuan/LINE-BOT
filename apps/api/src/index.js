@@ -28,22 +28,34 @@ async function ensureDefaultAccounts() {
 async function ensureAdminAccount({ email, username, password, name, role, planType, expireAt = null }) {
   const normalizedEmail = normalizeIdentifier(email);
   const normalizedUsername = normalizeIdentifier(username);
+  const passwordHash = await bcrypt.hash(password, 12);
   const existing = await findExistingAdminAccount(normalizedEmail, normalizedUsername);
+
   if (existing) {
-    const updateData = {};
+    const updateData = {
+      passwordHash,
+      name,
+      role,
+      planType,
+      expireAt,
+      status: "ACTIVE"
+    };
+
     if (!existing.ownerAdminId) updateData.ownerAdminId = existing.id;
-    if (normalizedEmail && !existing.email) updateData.email = normalizedEmail;
-    if (normalizedUsername && !existing.username) updateData.username = normalizedUsername;
-    if (Object.keys(updateData).length) {
-      await prisma.adminUser.update({
-        where: { id: existing.id },
-        data: updateData
-      });
-    }
-    return existing;
+    if (normalizedEmail && existing.email !== normalizedEmail) updateData.email = normalizedEmail;
+    if (normalizedUsername && existing.username !== normalizedUsername) updateData.username = normalizedUsername;
+
+    await prisma.adminUser.update({
+      where: { id: existing.id },
+      data: updateData
+    });
+
+    return {
+      ...existing,
+      ...updateData
+    };
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
   const admin = await prisma.adminUser.create({
     data: {
       email: normalizedEmail || null,
