@@ -14,7 +14,7 @@ const emptyForm = {
 export default function GroupsPage() {
   const router = useRouter();
   const user = getUser();
-  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER" || user?.role === "SUPER_ADMIN";
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);

@@ -25,7 +25,7 @@ const defaultRule = {
 export default function RulesPage() {
   const router = useRouter();
   const user = getUser();
-  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER" || user?.role === "SUPER_ADMIN";
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);

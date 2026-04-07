@@ -8,7 +8,7 @@ import { Shell } from "../../components/Shell";
 export default function TelegramSettingsPage() {
   const router = useRouter();
   const user = getUser();
-  const canWrite = user?.role === "ADMIN";
+  const canWrite = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramChatIds, setTelegramChatIds] = useState("");
   const [tokenSet, setTokenSet] = useState(false);

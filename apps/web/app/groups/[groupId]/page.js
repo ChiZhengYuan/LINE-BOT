@@ -37,7 +37,7 @@ export default function GroupDetailPage() {
   const params = useParams();
   const groupId = params?.groupId;
   const user = getUser();
-  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER" || user?.role === "SUPER_ADMIN";
   const [group, setGroup] = useState(null);
   const [settings, setSettings] = useState(defaultSettings);
   const [welcome, setWelcome] = useState(defaultWelcome);

@@ -41,7 +41,7 @@ export function Shell({ children, title, subtitle }) {
       { href: "/line-configs", label: "LINE 綁定", show: isAdminLike },
       { href: "/admins", label: "管理員", show: isSuperAdmin },
       { href: "/super-admin", label: "超級系統", show: isSuperAdmin },
-      { href: "/more-programs", label: "更多程式", show: isSuperAdmin }
+      { href: "/more-programs", label: "更多程式", show: isAdminLike }
     ];
 
     return items.filter((item) => item.show !== false);

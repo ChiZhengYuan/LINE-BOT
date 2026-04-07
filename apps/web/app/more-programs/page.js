@@ -21,7 +21,7 @@ const programs = [
 export default function MoreProgramsPage() {
   const router = useRouter();
   const user = getUser();
-  const canView = user?.role === "ADMIN";
+  const canView = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
 
   useEffect(() => {
     if (!getToken()) {
