@@ -21,6 +21,8 @@ export default function DailyReportsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const [clearing, setClearing] = useState(false);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -82,6 +84,34 @@ export default function DailyReportsPage() {
     await load();
   };
 
+  const deleteReport = async (reportId) => {
+    if (!window.confirm("確定要刪除這份每日匯報嗎？")) return;
+    setDeletingId(reportId);
+    setError("");
+    try {
+      await apiFetch(`/loans/daily-reports/${reportId}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "刪除每日匯報失敗");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const clearReports = async () => {
+    if (!window.confirm("確定要刪除目前篩選條件下的所有每日匯報嗎？")) return;
+    setClearing(true);
+    setError("");
+    try {
+      await apiFetch(`/loans/daily-reports${query ? `?${query}` : ""}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "清空每日匯報失敗");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <Shell title="每日匯報" subtitle="查看今天與歷史匯報，可重新產生並手動發送到群組">
       <section className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur">
@@ -106,6 +136,13 @@ export default function DailyReportsPage() {
           </button>
           <button onClick={generate} disabled={generating} className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 disabled:opacity-50">
             {generating ? "產生中..." : "重新產生匯報"}
+          </button>
+          <button
+            onClick={clearReports}
+            disabled={clearing}
+            className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100 disabled:opacity-50"
+          >
+            {clearing ? "刪除中..." : "刪除目前篩選"}
           </button>
         </div>
       </section>
@@ -134,6 +171,13 @@ export default function DailyReportsPage() {
               <Link href={`/loan-cases?groupId=${encodeURIComponent(item.groupId)}`} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100">
                 查看案件
               </Link>
+              <button
+                onClick={() => deleteReport(item.id)}
+                disabled={deletingId === item.id}
+                className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100 disabled:opacity-50"
+              >
+                {deletingId === item.id ? "刪除中..." : "刪除"}
+              </button>
             </div>
           </article>
         ))}

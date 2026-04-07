@@ -25,6 +25,7 @@ export default function LoanCaseDetailPage() {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   const load = async () => {
@@ -76,6 +77,20 @@ export default function LoanCaseDetailPage() {
       setError(err.message || "儲存失敗");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const removeCase = async () => {
+    if (!window.confirm("確定要刪除這筆貸款案件嗎？")) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await apiFetch(`/loans/cases/${caseId}`, { method: "DELETE" });
+      router.push("/loan-cases");
+    } catch (err) {
+      setError(err.message || "刪除貸款案件失敗");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -134,6 +149,13 @@ export default function LoanCaseDetailPage() {
             </div>
             <button onClick={save} disabled={saving} className="mt-4 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">
               {saving ? "儲存中..." : "儲存變更"}
+            </button>
+            <button
+              onClick={removeCase}
+              disabled={deleting}
+              className="mt-4 ml-3 rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100 disabled:opacity-50"
+            >
+              {deleting ? "刪除中..." : "刪除案件"}
             </button>
           </section>
 

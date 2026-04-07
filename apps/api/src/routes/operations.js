@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
+import { applyTenantWhere } from "../middleware/tenant.js";
 import { parseQuery } from "../lib/validation.js";
 
 export const operationsRouter = express.Router();
@@ -23,7 +24,7 @@ operationsRouter.get("/", requireAuth, async (req, res) => {
 
   const page = query.page || 1;
   const limit = query.limit || 20;
-  const where = {};
+  const where = applyTenantWhere(req, {});
 
   if (query.adminUserId) where.adminUserId = query.adminUserId;
   if (query.groupId) where.groupId = query.groupId;
@@ -54,3 +55,40 @@ operationsRouter.get("/", requireAuth, async (req, res) => {
   res.json({ items, total, page, limit });
 });
 
+operationsRouter.delete("/:logId", requireAuth, async (req, res) => {
+  const item = await prisma.operationLog.findFirst({
+    where: applyTenantWhere(req, { id: req.params.logId }),
+    select: { id: true }
+  });
+
+  if (!item) {
+    return res.status(404).json({ message: "Operation log not found" });
+  }
+
+  await prisma.operationLog.delete({ where: { id: item.id } });
+  res.json({ ok: true });
+});
+
+operationsRouter.delete("/", requireAuth, async (req, res) => {
+  const query = parseQuery(querySchema, req, res);
+  if (!query) return;
+
+  const where = applyTenantWhere(req, {});
+  if (query.adminUserId) where.adminUserId = query.adminUserId;
+  if (query.groupId) where.groupId = query.groupId;
+  if (query.eventType) where.eventType = query.eventType;
+  if (query.from || query.to) {
+    where.createdAt = {};
+    if (query.from) where.createdAt.gte = new Date(query.from);
+    if (query.to) where.createdAt.lte = new Date(query.to);
+  }
+  if (query.q) {
+    where.OR = [
+      { title: { contains: query.q, mode: "insensitive" } },
+      { detail: { contains: query.q, mode: "insensitive" } }
+    ];
+  }
+
+  const result = await prisma.operationLog.deleteMany({ where });
+  res.json({ deletedCount: result.count });
+});

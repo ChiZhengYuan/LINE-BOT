@@ -24,6 +24,8 @@ export default function OperationLogsPage() {
   const [groups, setGroups] = useState([]);
   const [admins, setAdmins] = useState(isSuperAdmin ? [] : user ? [user] : []);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState("");
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
 
@@ -59,7 +61,7 @@ export default function OperationLogsPage() {
         const adminsRes = await apiFetch("/admins");
         setAdmins(adminsRes.admins || []);
       } catch (err) {
-        setWarning("管理員清單載入失敗，但操作日誌已正常顯示。");
+        setWarning("管理員清單載入失敗，但操作日誌仍可正常顯示。");
         setAdmins([]);
       }
     } else {
@@ -83,8 +85,36 @@ export default function OperationLogsPage() {
 
   const resetFilters = () => setFilters(emptyFilters);
 
+  const deleteLog = async (id) => {
+    if (!window.confirm("確定要刪除這筆操作日誌嗎？")) return;
+    setDeletingId(id);
+    setError("");
+    try {
+      await apiFetch(`/operation-logs/${id}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "刪除操作日誌失敗");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const clearLogs = async () => {
+    if (!window.confirm("確定要刪除目前篩選條件下的所有操作日誌嗎？")) return;
+    setClearing(true);
+    setError("");
+    try {
+      await apiFetch(`/operation-logs${query ? `?${query}` : ""}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "清空操作日誌失敗");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
-    <Shell title="操作日誌" subtitle="查看所有後台操作、登入與系統事件，支援篩選與查詢。">
+    <Shell title="操作日誌" subtitle="查看所有後台操作、登入與系統事件，支援篩選、刪除與查詢。">
       <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur">
         <div className="grid gap-4 lg:grid-cols-3">
           <Select
@@ -115,14 +145,18 @@ export default function OperationLogsPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            onClick={resetFilters}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100"
-          >
+          <button onClick={resetFilters} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">
             清除篩選
           </button>
           <button onClick={load} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">
             重新整理
+          </button>
+          <button
+            onClick={clearLogs}
+            disabled={clearing}
+            className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100 disabled:opacity-50"
+          >
+            {clearing ? "刪除中..." : "刪除目前篩選"}
           </button>
         </div>
       </div>
@@ -155,6 +189,13 @@ export default function OperationLogsPage() {
               {item.group?.name || item.group?.lineGroupId || "未指定群組"}
               {item.member?.userId ? ` / ${item.member.userId}` : ""}
             </div>
+            <button
+              onClick={() => deleteLog(item.id)}
+              disabled={deletingId === item.id}
+              className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100 disabled:opacity-50"
+            >
+              {deletingId === item.id ? "刪除中..." : "刪除"}
+            </button>
           </article>
         ))}
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
+import { applyTenantWhere } from "../middleware/tenant.js";
 import { parseBody, parseQuery } from "../lib/validation.js";
 import {
   createOrUpdateManualLoanCase,
@@ -115,8 +116,8 @@ loansRouter.post("/cases", requireAuth, requireRole("ADMIN", "MANAGER"), async (
 });
 
 loansRouter.get("/cases/:caseId", requireAuth, async (req, res) => {
-  const item = await prisma.loanCase.findUnique({
-    where: { id: req.params.caseId },
+  const item = await prisma.loanCase.findFirst({
+    where: applyTenantWhere(req, { id: req.params.caseId }),
     include: {
       group: true,
       statusLogs: {
@@ -133,6 +134,50 @@ loansRouter.get("/cases/:caseId", requireAuth, async (req, res) => {
   }
 
   res.json({ item });
+});
+
+loansRouter.delete("/cases/:caseId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const item = await prisma.loanCase.findFirst({
+    where: applyTenantWhere(req, { id: req.params.caseId }),
+    select: { id: true, groupId: true }
+  });
+
+  if (!item) {
+    return res.status(404).json({ message: "Case not found" });
+  }
+
+  await prisma.loanCase.delete({ where: { id: item.id } });
+  await logOperation({
+    adminUserId: req.user.sub,
+    groupId: item.groupId,
+    eventType: "LOAN_CASE_UPDATED",
+    title: "刪除貸款案件",
+    detail: item.id
+  }).catch(() => {});
+
+  res.json({ ok: true });
+});
+
+loansRouter.delete("/cases", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const query = parseQuery(listQuerySchema, req, res);
+  if (!query) return;
+
+  const where = applyTenantWhere(req, {});
+  if (query.groupId) where.groupId = query.groupId;
+  if (query.status) where.status = query.status;
+  if (query.ownerStaff) where.ownerStaff = { contains: query.ownerStaff, mode: "insensitive" };
+  if (query.q) {
+    where.OR = [
+      { customerName: { contains: query.q, mode: "insensitive" } },
+      { phone: { contains: query.q, mode: "insensitive" } },
+      { caseType: { contains: query.q, mode: "insensitive" } },
+      { note: { contains: query.q, mode: "insensitive" } },
+      { lineDisplayName: { contains: query.q, mode: "insensitive" } }
+    ];
+  }
+
+  const result = await prisma.loanCase.deleteMany({ where });
+  res.json({ deletedCount: result.count });
 });
 
 loansRouter.patch("/cases/:caseId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
@@ -159,6 +204,44 @@ loansRouter.get("/daily-reports", requireAuth, async (req, res) => {
 
   const result = await listDailyCaseReports(query);
   res.json(result);
+});
+
+loansRouter.delete("/daily-reports/:reportId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const report = await prisma.dailyCaseReport.findFirst({
+    where: applyTenantWhere(req, { id: req.params.reportId }),
+    select: { id: true, groupId: true }
+  });
+
+  if (!report) {
+    return res.status(404).json({ message: "Report not found" });
+  }
+
+  await prisma.dailyCaseReport.delete({ where: { id: report.id } });
+  await logOperation({
+    adminUserId: req.user.sub,
+    groupId: report.groupId,
+    eventType: "DAILY_CASE_REPORT_CREATED",
+    title: "刪除每日匯報",
+    detail: report.id
+  }).catch(() => {});
+
+  res.json({ ok: true });
+});
+
+loansRouter.delete("/daily-reports", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const query = parseQuery(reportListQuerySchema, req, res);
+  if (!query) return;
+
+  const where = applyTenantWhere(req, {});
+  if (query.groupId) where.groupId = query.groupId;
+  if (query.from || query.to) {
+    where.reportDate = {};
+    if (query.from) where.reportDate.gte = new Date(query.from);
+    if (query.to) where.reportDate.lte = new Date(query.to);
+  }
+
+  const result = await prisma.dailyCaseReport.deleteMany({ where });
+  res.json({ deletedCount: result.count });
 });
 
 loansRouter.post("/daily-reports/generate", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
@@ -265,8 +348,8 @@ loansRouter.post("/reminders/sync", requireAuth, requireRole("ADMIN", "MANAGER")
 });
 
 loansRouter.get("/reminders/:reminderId", requireAuth, async (req, res) => {
-  const reminder = await prisma.loanCaseReminder.findUnique({
-    where: { id: req.params.reminderId },
+  const reminder = await prisma.loanCaseReminder.findFirst({
+    where: applyTenantWhere(req, { id: req.params.reminderId }),
     include: {
       group: true,
       loanCase: true
@@ -278,6 +361,20 @@ loansRouter.get("/reminders/:reminderId", requireAuth, async (req, res) => {
   }
 
   res.json({ reminder });
+});
+
+loansRouter.delete("/reminders/:reminderId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const reminder = await prisma.loanCaseReminder.findFirst({
+    where: applyTenantWhere(req, { id: req.params.reminderId }),
+    select: { id: true, groupId: true }
+  });
+
+  if (!reminder) {
+    return res.status(404).json({ message: "Reminder not found" });
+  }
+
+  await prisma.loanCaseReminder.delete({ where: { id: reminder.id } });
+  res.json({ ok: true });
 });
 
 loansRouter.get("/cases/:caseId/summary", requireAuth, async (req, res) => {

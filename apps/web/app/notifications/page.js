@@ -14,6 +14,8 @@ export default function NotificationsPage() {
   const [groups, setGroups] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState("");
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState("");
 
   const query = useMemo(() => {
@@ -62,6 +64,34 @@ export default function NotificationsPage() {
     await load();
   };
 
+  const removeNotification = async (id) => {
+    if (!window.confirm("確定要刪除這則通知嗎？")) return;
+    setDeletingId(id);
+    setError("");
+    try {
+      await apiFetch(`/notifications/${id}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "刪除通知失敗");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const clearNotifications = async () => {
+    if (!window.confirm("確定要刪除目前篩選條件下的所有通知嗎？")) return;
+    setClearing(true);
+    setError("");
+    try {
+      await apiFetch(`/notifications${query ? `?${query}` : ""}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "清空通知失敗");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <Shell title="通知中心" subtitle={`未讀 ${unreadCount} 則，支援標記已讀與篩選。`}>
       <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur">
@@ -96,6 +126,9 @@ export default function NotificationsPage() {
           <button onClick={() => setFilters(emptyFilters)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">清除</button>
           <button onClick={load} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">重新整理</button>
           <button onClick={markAll} className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">全部標記已讀</button>
+          <button onClick={clearNotifications} disabled={clearing} className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100 disabled:opacity-50">
+            {clearing ? "刪除中..." : "刪除目前篩選"}
+          </button>
         </div>
       </div>
 
@@ -116,11 +149,20 @@ export default function NotificationsPage() {
               {item.group?.name || item.group?.lineGroupId || "無群組"}
               {item.member?.userId ? ` / ${item.member.userId}` : ""}
             </div>
-            {!item.isRead ? (
-              <button onClick={() => markRead(item.id)} className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100">
-                標記已讀
+            <div className="mt-4 flex flex-wrap gap-2">
+              {!item.isRead ? (
+                <button onClick={() => markRead(item.id)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100">
+                  標記已讀
+                </button>
+              ) : null}
+              <button
+                onClick={() => removeNotification(item.id)}
+                disabled={deletingId === item.id}
+                className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100 disabled:opacity-50"
+              >
+                {deletingId === item.id ? "刪除中..." : "刪除"}
               </button>
-            ) : null}
+            </div>
           </article>
         ))}
 

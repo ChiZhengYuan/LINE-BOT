@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
+import { applyTenantWhere } from "../middleware/tenant.js";
 import { parseBody, parseQuery } from "../lib/validation.js";
 import { markAllNotificationsRead, markNotificationRead } from "../services/activity.js";
 
@@ -19,7 +20,7 @@ notificationsRouter.get("/", requireAuth, async (req, res) => {
   const query = parseQuery(listSchema, req, res);
   if (!query) return;
 
-  const where = {};
+  const where = applyTenantWhere(req, {});
   if (query.groupId) where.groupId = query.groupId;
   if (query.type) where.type = query.type;
   if (query.isRead === "true") where.isRead = true;
@@ -58,3 +59,31 @@ notificationsRouter.post("/read-all", requireAuth, async (req, res) => {
   res.json({ result });
 });
 
+notificationsRouter.delete("/:notificationId", requireAuth, async (req, res) => {
+  const ownerWhere = applyTenantWhere(req, { id: req.params.notificationId });
+  const item = await prisma.notification.findFirst({
+    where: ownerWhere,
+    select: { id: true }
+  });
+
+  if (!item) {
+    return res.status(404).json({ message: "Notification not found" });
+  }
+
+  await prisma.notification.delete({ where: { id: item.id } });
+  res.json({ ok: true });
+});
+
+notificationsRouter.delete("/", requireAuth, async (req, res) => {
+  const query = parseQuery(listSchema, req, res);
+  if (!query) return;
+
+  const where = applyTenantWhere(req, {});
+  if (query.groupId) where.groupId = query.groupId;
+  if (query.type) where.type = query.type;
+  if (query.isRead === "true") where.isRead = true;
+  if (query.isRead === "false") where.isRead = false;
+
+  const result = await prisma.notification.deleteMany({ where });
+  res.json({ deletedCount: result.count });
+});

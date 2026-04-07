@@ -35,6 +35,8 @@ export default function LoanCasesPage() {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -104,6 +106,34 @@ export default function LoanCasesPage() {
     }
   };
 
+  const deleteCase = async (id) => {
+    if (!window.confirm("確定要刪除這筆貸款案件嗎？")) return;
+    setDeletingId(id);
+    setError("");
+    try {
+      await apiFetch(`/loans/cases/${id}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "刪除貸款案件失敗");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const clearCases = async () => {
+    if (!window.confirm("確定要刪除目前篩選條件下的所有貸款案件嗎？")) return;
+    setClearing(true);
+    setError("");
+    try {
+      await apiFetch(`/loans/cases?${query}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message || "清空貸款案件失敗");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <Shell title="貸款案件" subtitle="自動解析群組訊息與手動建案都會匯入這裡">
       <section className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur">
@@ -151,6 +181,13 @@ export default function LoanCasesPage() {
           </button>
           <button onClick={load} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">
             重新載入
+          </button>
+          <button
+            onClick={clearCases}
+            disabled={clearing}
+            className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100 disabled:opacity-50"
+          >
+            {clearing ? "刪除中..." : "刪除目前篩選"}
           </button>
         </div>
       </section>
@@ -214,6 +251,13 @@ export default function LoanCasesPage() {
               <Link href={`/loan-cases/${item.id}`} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100">
                 查看詳情
               </Link>
+              <button
+                onClick={() => deleteCase(item.id)}
+                disabled={deletingId === item.id}
+                className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100 disabled:opacity-50"
+              >
+                {deletingId === item.id ? "刪除中..." : "刪除"}
+              </button>
             </div>
           </article>
         ))}
