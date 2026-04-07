@@ -2,6 +2,7 @@ import { prisma } from "../config/prisma.js";
 import { env } from "../config/env.js";
 import { pushText } from "./line.js";
 import { sendTelegramMessage } from "./telegram.js";
+import { getTelegramSettings } from "./telegramSettings.js";
 
 export async function recordViolation({
   group,
@@ -49,15 +50,16 @@ export async function recordViolation({
       : env.lineAdminUserIds;
 
     for (const adminId of targets) {
-      await pushText(adminId, `群組 ${group.lineGroupId} 偵測到違規：${analysis.aiAssessment.reason}`);
+      await pushText(adminId, `群組 ${group.lineGroupId} 觸發違規通知：${analysis.aiAssessment.reason}`);
     }
 
+    const telegramSettings = await getTelegramSettings();
     const telegramTargets = (analysis.setting.adminNotifyTelegramChatIds || []).length
       ? analysis.setting.adminNotifyTelegramChatIds
-      : env.telegramDefaultChatIds;
+      : telegramSettings.telegramChatIds;
 
     for (const chatId of telegramTargets) {
-      await sendTelegramMessage(chatId, `群組 ${group.lineGroupId} 偵測到違規：${analysis.aiAssessment.reason}`);
+      await sendTelegramMessage(chatId, `群組 ${group.lineGroupId} 觸發違規通知：${analysis.aiAssessment.reason}`);
     }
   }
 

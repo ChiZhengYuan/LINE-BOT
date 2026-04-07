@@ -6,6 +6,7 @@ import { authRouter } from "./routes/auth.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { groupsRouter } from "./routes/groups.js";
 import { listsRouter } from "./routes/lists.js";
+import { settingsRouter } from "./routes/settings.js";
 import { violationsRouter } from "./routes/violations.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { errorHandler, notFound } from "./middleware/error.js";
@@ -37,6 +38,7 @@ export function createApp() {
   app.use("/api/groups", groupsRouter);
   app.use("/api/admins", adminsRouter);
   app.use("/api/lists", listsRouter);
+  app.use("/api/settings", settingsRouter);
   app.use("/api/violations", violationsRouter);
 
   app.use(notFound);

@@ -1,13 +1,15 @@
-import { env } from "../config/env.js";
+import { getTelegramSettings } from "./telegramSettings.js";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
 export async function sendTelegramMessage(chatId, text) {
-  if (!env.telegramBotToken || !chatId) {
+  const { telegramBotToken } = await getTelegramSettings();
+
+  if (!telegramBotToken || !chatId) {
     return;
   }
 
-  const response = await fetch(`${TELEGRAM_API}/bot${env.telegramBotToken}/sendMessage`, {
+  const response = await fetch(`${TELEGRAM_API}/bot${telegramBotToken}/sendMessage`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

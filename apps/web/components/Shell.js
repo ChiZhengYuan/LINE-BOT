@@ -19,6 +19,7 @@ export function Shell({ children, title, subtitle }) {
     { href: "/lists", label: "黑白名單" },
     { href: "/rules", label: "規則設定", show: isManager },
     { href: "/ai", label: "AI 紀錄" },
+    { href: "/telegram", label: "Telegram 設定", show: isAdmin },
     { href: "/admins", label: "管理員", show: isAdmin }
   ].filter((item) => item.show !== false);
 
