@@ -20,7 +20,7 @@ const child = spawn(process.execPath, [serverPath], {
   env: {
     ...process.env,
     PORT: port,
-    HOSTNAME: process.env.HOSTNAME || "0.0.0.0"
+    HOSTNAME: "0.0.0.0"
   },
   stdio: "inherit"
 });
