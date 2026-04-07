@@ -18,9 +18,10 @@ export function Shell({ children, title, subtitle }) {
     { href: "/violations", label: "違規紀錄" },
     { href: "/lists", label: "黑白名單" },
     { href: "/rules", label: "規則設定", show: isManager },
-    { href: "/ai", label: "AI 紀錄" },
+    { href: "/ai", label: "AI 判斷" },
     { href: "/telegram", label: "Telegram 設定", show: isAdmin },
-    { href: "/admins", label: "管理員", show: isAdmin }
+    { href: "/admins", label: "管理員", show: isAdmin },
+    { href: "/more-programs", label: "更多程式", show: isAdmin }
   ].filter((item) => item.show !== false);
 
   const logout = () => {
@@ -48,7 +49,7 @@ export function Shell({ children, title, subtitle }) {
               </div>
             </div>
 
-            <p className="mb-6 text-sm text-slate-300">官方 LINE Messaging API 群組管理後台</p>
+            <p className="mb-6 text-sm text-slate-300">LINE Messaging API 群組管理後台</p>
 
             <nav className="space-y-2">
               {navItems.map((item) => {
