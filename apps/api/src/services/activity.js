@@ -60,26 +60,79 @@ export async function updateMemberActivity(memberId, patch = {}) {
 export async function ensureGroupSettings(groupId) {
   const ownerAdminId = await getGroupOwnerAdminId(groupId);
 
+  await prisma.$executeRaw`
+    INSERT INTO "GroupSetting" (
+      "groupId",
+      "ownerAdminId",
+      "autoEnforcement",
+      "aiEnabled",
+      "blacklistFilteringEnabled",
+      "spamDetectionEnabled",
+      "welcomeEnabled",
+      "announcementEnabled",
+      "dailyReportEnabled",
+      "dailyReportTime",
+      "keywordAutoReplyEnabled",
+      "lotteryEnabled",
+      "missionEnabled",
+      "checkinEnabled",
+      "rankingEnabled",
+      "violationThreshold",
+      "spamWindowSeconds",
+      "spamMaxMessages",
+      "pushToGroup",
+      "notifyAdmins"
+    )
+    VALUES (
+      ${groupId},
+      ${ownerAdminId},
+      ${true},
+      ${true},
+      ${true},
+      ${true},
+      ${false},
+      ${false},
+      ${true},
+      ${"09:00"},
+      ${true},
+      ${false},
+      ${false},
+      ${false},
+      ${false},
+      ${3},
+      ${10},
+      ${5},
+      ${false},
+      ${true}
+    )
+    ON CONFLICT ("groupId") DO UPDATE SET
+      "ownerAdminId" = EXCLUDED."ownerAdminId",
+      "updatedAt" = NOW();
+  `;
+
+  await prisma.$executeRaw`
+    INSERT INTO "WelcomeSetting" (
+      "groupId",
+      "ownerAdminId",
+      "enabled",
+      "welcomeMessage",
+      "groupRulesMessage"
+    )
+    VALUES (
+      ${groupId},
+      ${ownerAdminId},
+      ${false},
+      ${"歡迎加入群組，請先閱讀群規。"},
+      ${"請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"}
+    )
+    ON CONFLICT ("groupId") DO UPDATE SET
+      "ownerAdminId" = EXCLUDED."ownerAdminId",
+      "updatedAt" = NOW();
+  `;
+
   const [groupSetting, welcomeSetting] = await Promise.all([
-    prisma.groupSetting.upsert({
-      where: { groupId },
-      update: {},
-      create: {
-        groupId,
-        ownerAdminId,
-        keywordAutoReplyEnabled: true
-      }
-    }),
-    prisma.welcomeSetting.upsert({
-      where: { groupId },
-      update: {},
-      create: {
-        groupId,
-        ownerAdminId,
-        welcomeMessage: "歡迎加入群組，請先閱讀群規。",
-        groupRulesMessage: "請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"
-      }
-    })
+    prisma.groupSetting.findUnique({ where: { groupId } }),
+    prisma.welcomeSetting.findUnique({ where: { groupId } })
   ]);
 
   return { groupSetting, welcomeSetting };
@@ -144,9 +197,13 @@ export async function markNotificationRead(notificationId) {
   });
 }
 
-export async function markAllNotificationsRead() {
+export async function markAllNotificationsRead(req) {
+  const ownerAdminId = getTenantOwnerId(req);
   return prisma.notification.updateMany({
-    where: { isRead: false },
+    where: {
+      isRead: false,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    },
     data: { isRead: true, readAt: new Date() }
   });
 }
