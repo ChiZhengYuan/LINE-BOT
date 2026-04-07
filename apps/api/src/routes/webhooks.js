@@ -78034,7 +78034,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
 
 
 
-    const confirmation = `${nextValue ? "???" : "???"}\n` +
+    const confirmation = `${nextValue ? "已全開" : "已全關"}\n` +
       buildProtectionStatusMessage(refreshedGroup, refreshedGroup?.groupSetting, refreshedGroup?.ruleSetting, refreshedGroup?.welcomeSetting);
 
 
