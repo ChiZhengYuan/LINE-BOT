@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, getToken } from "../../lib/api";
+import { apiFetch, getToken, getUser } from "../../lib/api";
 import { Shell } from "../../components/Shell";
 
 const emptyFilters = {
@@ -16,12 +16,16 @@ const emptyFilters = {
 
 export default function OperationLogsPage() {
   const router = useRouter();
+  const user = getUser();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+
   const [items, setItems] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
   const [groups, setGroups] = useState([]);
-  const [admins, setAdmins] = useState([]);
+  const [admins, setAdmins] = useState(isSuperAdmin ? [] : user ? [user] : []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -34,21 +38,38 @@ export default function OperationLogsPage() {
   const load = async () => {
     setLoading(true);
     setError("");
+    setWarning("");
+
     try {
-      const [logsRes, groupsRes, adminsRes] = await Promise.all([
+      const [logsRes, groupsRes] = await Promise.all([
         apiFetch(`/operation-logs${query ? `?${query}` : ""}`),
-        apiFetch("/groups"),
-        apiFetch("/admins")
+        apiFetch("/groups")
       ]);
+
       setItems(logsRes.items || []);
       setGroups(groupsRes.groups || []);
-      setAdmins(adminsRes.admins || []);
     } catch (err) {
-      setError(err.message || "讀取操作日誌失敗");
-      throw err;
-    } finally {
+      setError(err.message || "無法載入操作日誌");
       setLoading(false);
+      return;
     }
+
+    if (isSuperAdmin) {
+      try {
+        const adminsRes = await apiFetch("/admins");
+        setAdmins(adminsRes.admins || []);
+      } catch (err) {
+        setWarning("管理員清單載入失敗，但操作日誌已正常顯示。");
+        setAdmins([]);
+      }
+    } else {
+      setAdmins(user ? [user] : []);
+      if (filters.adminUserId && filters.adminUserId !== user?.id) {
+        setFilters((prev) => ({ ...prev, adminUserId: user?.id || "" }));
+      }
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -56,15 +77,23 @@ export default function OperationLogsPage() {
       router.replace("/login");
       return;
     }
+
     load().catch(() => {});
   }, [router, query]);
 
+  const resetFilters = () => setFilters(emptyFilters);
+
   return (
-    <Shell title="操作日誌" subtitle="記錄所有後台行為，方便稽核與追蹤。">
+    <Shell title="操作日誌" subtitle="查看所有後台操作、登入與系統事件，支援篩選與查詢。">
       <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur">
         <div className="grid gap-4 lg:grid-cols-3">
-          <Select label="管理員" value={filters.adminUserId} onChange={(value) => setFilters({ ...filters, adminUserId: value })}>
-            <option value="">全部</option>
+          <Select
+            label="管理員"
+            value={filters.adminUserId}
+            onChange={(value) => setFilters({ ...filters, adminUserId: value })}
+            disabled={!isSuperAdmin}
+          >
+            <option value="">{isSuperAdmin ? "全部" : "目前帳號"}</option>
             {admins.map((admin) => (
               <option key={admin.id} value={admin.id}>
                 {admin.name || admin.email}
@@ -81,17 +110,34 @@ export default function OperationLogsPage() {
           </Select>
           <Input label="事件類型" value={filters.eventType} onChange={(value) => setFilters({ ...filters, eventType: value })} />
           <Input label="關鍵字" value={filters.q} onChange={(value) => setFilters({ ...filters, q: value })} />
-          <Input label="起日" type="date" value={filters.from} onChange={(value) => setFilters({ ...filters, from: value })} />
-          <Input label="迄日" type="date" value={filters.to} onChange={(value) => setFilters({ ...filters, to: value })} />
+          <Input label="起始日期" type="date" value={filters.from} onChange={(value) => setFilters({ ...filters, from: value })} />
+          <Input label="結束日期" type="date" value={filters.to} onChange={(value) => setFilters({ ...filters, to: value })} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <button onClick={() => setFilters(emptyFilters)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">清除</button>
-          <button onClick={load} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">重新整理</button>
+          <button
+            onClick={resetFilters}
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100"
+          >
+            清除篩選
+          </button>
+          <button onClick={load} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950">
+            重新整理
+          </button>
         </div>
       </div>
 
-      {error ? <div className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{error}</div> : null}
+      {error ? (
+        <div className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          {error}
+        </div>
+      ) : null}
+
+      {warning ? (
+        <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          {warning}
+        </div>
+      ) : null}
 
       <div className="mt-6 space-y-4">
         {loading ? <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">載入中...</div> : null}
@@ -100,13 +146,13 @@ export default function OperationLogsPage() {
           <article key={item.id} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur sm:p-5">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="cyan">{item.eventType}</Badge>
-              <Badge tone="emerald">{item.adminUser?.name || item.adminUser?.email || "系統"}</Badge>
+              <Badge tone="emerald">{item.adminUser?.name || item.adminUser?.email || "未知管理員"}</Badge>
               <span className="text-xs text-slate-400">{formatTime(item.createdAt)}</span>
             </div>
             <div className="mt-3 text-base font-semibold text-slate-50">{item.title}</div>
-            <div className="mt-1 text-sm text-slate-300">{item.detail || "無"}</div>
+            <div className="mt-1 text-sm text-slate-300">{item.detail || "沒有詳細說明"}</div>
             <div className="mt-3 text-xs text-slate-500">
-              {item.group?.name || item.group?.lineGroupId || "無群組"}
+              {item.group?.name || item.group?.lineGroupId || "未指定群組"}
               {item.member?.userId ? ` / ${item.member.userId}` : ""}
             </div>
           </article>
@@ -114,7 +160,7 @@ export default function OperationLogsPage() {
 
         {!loading && items.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-8 text-center text-slate-400">
-            目前沒有操作日誌。
+            目前沒有操作日誌
           </div>
         ) : null}
       </div>
@@ -122,14 +168,15 @@ export default function OperationLogsPage() {
   );
 }
 
-function Select({ label, value, onChange, children }) {
+function Select({ label, value, onChange, children, disabled = false }) {
   return (
     <label className="block text-sm text-slate-300">
       {label}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none"
+        disabled={disabled}
+        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none disabled:opacity-60"
       >
         {children}
       </select>

@@ -129,7 +129,11 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
       });
 
       if (analysis.actionTaken === "WARNING") {
-        await replyText(event.replyToken, group.ruleSetting?.warningMessage || "請注意群組規範。");
+        await sendConversationMessage({
+          lineConversationId: lineGroupId,
+          replyToken: event.replyToken,
+          text: group.ruleSetting?.warningMessage || "請注意群組規範，系統已記錄此次行為。"
+        });
       }
     }
 
@@ -349,12 +353,30 @@ async function handleAutoReply(group, content, replyToken) {
       }
     });
 
-    if (rule.responseType === "FLEX" && rule.responseFlex) {
-      await replyText(replyToken, rule.responseText || "已收到");
-    } else {
-      await replyText(replyToken, rule.responseText);
-    }
+    await sendConversationMessage({
+      lineConversationId: group.lineGroupId,
+      replyToken,
+      text: rule.responseType === "FLEX" && rule.responseFlex ? rule.responseText || "已收到" : rule.responseText
+    });
     return;
+  }
+}
+
+async function sendConversationMessage({ lineConversationId, replyToken, text }) {
+  const message = String(text || "").trim();
+  if (!message) return;
+
+  if (replyToken) {
+    try {
+      await replyText(replyToken, message);
+      return;
+    } catch (error) {
+      console.warn("LINE reply failed, fallback to push:", error?.message || error);
+    }
+  }
+
+  if (lineConversationId) {
+    await pushText(lineConversationId, message);
   }
 }
 
