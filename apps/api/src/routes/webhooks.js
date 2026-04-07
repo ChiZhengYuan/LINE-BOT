@@ -127,6 +127,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
 
       const protectionStatusHandled = await handleProtectionStatusCommand({
         group,
+        lineUserId,
         content: event.message.text,
         replyToken: event.replyToken,
         accessToken: lineAccessToken
@@ -395,9 +396,11 @@ async function handleAutoReply(group, content, replyToken, accessToken = null) {
   }
 }
 
-async function handleProtectionStatusCommand({ group, content, replyToken, accessToken = null }) {
+async function handleProtectionStatusCommand({ group, lineUserId = null, content, replyToken, accessToken = null }) {
   const normalized = String(content || "").trim().replace(/\s+/g, "");
-  const keywords = [
+  const authorized = await canManageGroupCommands(group, lineUserId, accessToken);
+
+  const statusKeywords = [
     "保護狀態",
     "功能狀態",
     "群組狀態",
@@ -407,8 +410,8 @@ async function handleProtectionStatusCommand({ group, content, replyToken, acces
     "保護總覽"
   ];
 
-  const isCommand =
-    keywords.includes(normalized) ||
+  const statusCommand =
+    statusKeywords.includes(normalized) ||
     normalized === "功能" ||
     normalized === "狀態" ||
     normalized.includes("保護狀態") ||
@@ -416,17 +419,232 @@ async function handleProtectionStatusCommand({ group, content, replyToken, acces
     normalized.includes("群組狀態") ||
     normalized.includes("開關狀態");
 
-  if (!isCommand) return false;
+  if (statusCommand) {
+    const settings = await ensureGroupSettings(group.id);
+    const message = buildProtectionStatusMessage(group, settings.groupSetting, group.ruleSetting, settings.welcomeSetting);
+    await sendConversationMessage({
+      lineConversationId: group.lineGroupId,
+      replyToken,
+      text: message,
+      accessToken
+    });
+    return true;
+  }
 
-  const settings = await ensureGroupSettings(group.id);
-  const message = buildProtectionStatusMessage(group, settings.groupSetting, group.ruleSetting, settings.welcomeSetting);
+  const toggle = parseProtectionToggleCommand(normalized);
+  if (!toggle) return false;
+
+  if (!authorized) {
+    await sendConversationMessage({
+      lineConversationId: group.lineGroupId,
+      replyToken,
+      text: "你沒有權限切換群組功能開關。",
+      accessToken
+    }).catch(() => {});
+    return true;
+  }
+
+  const nextValue = toggle.checked;
+
+  if (toggle.field === "__bulk__") {
+    await prisma.groupSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        autoEnforcement: nextValue,
+        aiEnabled: nextValue,
+        blacklistFilteringEnabled: nextValue,
+        spamDetectionEnabled: nextValue,
+        welcomeEnabled: nextValue,
+        announcementEnabled: nextValue,
+        keywordAutoReplyEnabled: nextValue,
+        lotteryEnabled: nextValue,
+        missionEnabled: nextValue,
+        checkinEnabled: nextValue,
+        rankingEnabled: nextValue,
+        pushToGroup: nextValue,
+        notifyAdmins: nextValue
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: nextValue,
+        aiEnabled: nextValue,
+        blacklistFilteringEnabled: nextValue,
+        spamDetectionEnabled: nextValue,
+        welcomeEnabled: nextValue,
+        announcementEnabled: nextValue,
+        keywordAutoReplyEnabled: nextValue,
+        lotteryEnabled: nextValue,
+        missionEnabled: nextValue,
+        checkinEnabled: nextValue,
+        rankingEnabled: nextValue,
+        violationThreshold: 3,
+        spamWindowSeconds: 10,
+        spamMaxMessages: 5,
+        pushToGroup: nextValue,
+        notifyAdmins: nextValue
+      }
+    });
+
+    await prisma.ruleSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        protectUrl: nextValue,
+        protectInvite: nextValue
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        protectUrl: nextValue,
+        protectInvite: nextValue,
+        blacklistWords: [],
+        warningThreshold: 3,
+        reviewThreshold: 5,
+        kickThreshold: 7,
+        warningPoints: 2,
+        reviewPoints: 4,
+        kickPoints: 6,
+        warningMessage: "請注意群組規範，系統已記錄此次內容。",
+        adminNotifyLineIds: [],
+        adminNotifyTelegramChatIds: []
+      }
+    });
+  } else if (toggle.scope === "ruleSetting") {
+    await prisma.ruleSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        [toggle.field]: nextValue
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        protectUrl: toggle.field === "protectUrl" ? nextValue : true,
+        protectInvite: toggle.field === "protectInvite" ? nextValue : true,
+        blacklistWords: [],
+        warningThreshold: 3,
+        reviewThreshold: 5,
+        kickThreshold: 7,
+        warningPoints: 2,
+        reviewPoints: 4,
+        kickPoints: 6,
+        warningMessage: "請注意群組規範，系統已記錄此次內容。",
+        adminNotifyLineIds: [],
+        adminNotifyTelegramChatIds: []
+      }
+    });
+  } else if (toggle.scope === "groupSetting") {
+    await prisma.groupSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        [toggle.field]: nextValue
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: true,
+        aiEnabled: true,
+        blacklistFilteringEnabled: true,
+        spamDetectionEnabled: true,
+        welcomeEnabled: false,
+        announcementEnabled: false,
+        keywordAutoReplyEnabled: false,
+        lotteryEnabled: false,
+        missionEnabled: false,
+        checkinEnabled: false,
+        rankingEnabled: false,
+        violationThreshold: 3,
+        spamWindowSeconds: 10,
+        spamMaxMessages: 5,
+        pushToGroup: false,
+        notifyAdmins: true
+      }
+    });
+  }
+
+  await logOperation({
+    groupId: group.id,
+    adminUserId: null,
+    ownerAdminId: group.ownerAdminId || null,
+    eventType: "GROUP_SETTING_CHANGED",
+    title: "群組功能開關",
+    detail: `${toggle.label}${nextValue ? "開啟" : "關閉"}`
+  }).catch(() => {});
+
+  const refreshedGroup = await prisma.group.findUnique({
+    where: { id: group.id },
+    include: {
+      groupSetting: true,
+      ruleSetting: true,
+      welcomeSetting: true
+    }
+  });
+
+  const confirmation = `${toggle.label}${nextValue ? "已開啟" : "已關閉"}\n` +
+    buildProtectionStatusMessage(refreshedGroup, refreshedGroup?.groupSetting, refreshedGroup?.ruleSetting, refreshedGroup?.welcomeSetting);
+
   await sendConversationMessage({
     lineConversationId: group.lineGroupId,
     replyToken,
-    text: message,
+    text: confirmation,
     accessToken
   });
   return true;
+}
+
+async function canManageGroupCommands(group, lineUserId) {
+  if (!lineUserId) return false;
+
+  const allowedIds = new Set([
+    ...(env.lineAdminUserIds || []),
+    ...((group?.ruleSetting?.adminNotifyLineIds || []) || [])
+  ].filter(Boolean));
+
+  if (allowedIds.size === 0) {
+    return true;
+  }
+
+  return allowedIds.has(lineUserId);
+}
+
+function parseProtectionToggleCommand(normalized) {
+  if (!normalized) return null;
+
+  const toggleMatch = normalized.match(/^(.+?)(開|關)$/);
+  if (!toggleMatch) return null;
+
+  const feature = toggleMatch[1];
+  const checked = toggleMatch[2] === "開";
+
+  const featureMap = [
+    { keywords: ["功能", "自動執法", "踢人保護", "保護"], scope: "groupSetting", field: "autoEnforcement", label: "自動執法" },
+    { keywords: ["違規提醒", "提醒"], scope: "groupSetting", field: "notifyAdmins", label: "違規提醒" },
+    { keywords: ["AI"], scope: "groupSetting", field: "aiEnabled", label: "AI 判斷" },
+    { keywords: ["黑名單", "黑名單過濾"], scope: "groupSetting", field: "blacklistFilteringEnabled", label: "黑名單過濾" },
+    { keywords: ["洗版"], scope: "groupSetting", field: "spamDetectionEnabled", label: "洗版偵測" },
+    { keywords: ["新人", "歡迎"], scope: "groupSetting", field: "welcomeEnabled", label: "新人歡迎" },
+    { keywords: ["公告", "定時公告"], scope: "groupSetting", field: "announcementEnabled", label: "定時公告" },
+    { keywords: ["關鍵字", "自動回覆"], scope: "groupSetting", field: "keywordAutoReplyEnabled", label: "關鍵字自動回覆" },
+    { keywords: ["抽獎"], scope: "groupSetting", field: "lotteryEnabled", label: "抽獎系統" },
+    { keywords: ["任務"], scope: "groupSetting", field: "missionEnabled", label: "任務系統" },
+    { keywords: ["簽到"], scope: "groupSetting", field: "checkinEnabled", label: "簽到系統" },
+    { keywords: ["排行", "排行榜"], scope: "groupSetting", field: "rankingEnabled", label: "排行榜" },
+    { keywords: ["網址"], scope: "ruleSetting", field: "protectUrl", label: "網址保護" },
+    { keywords: ["邀請"], scope: "ruleSetting", field: "protectInvite", label: "邀請保護" }
+  ];
+
+  if (feature === "全部") {
+    return {
+      scope: "groupSetting",
+      field: "__bulk__",
+      checked,
+      label: "全部功能"
+    };
+  }
+
+  const matched = featureMap.find((item) => item.keywords.some((keyword) => feature.includes(keyword)));
+  if (!matched) return null;
+
+  return { ...matched, checked };
 }
 
 async function sendConversationMessage({ lineConversationId, replyToken, text, accessToken = null }) {
