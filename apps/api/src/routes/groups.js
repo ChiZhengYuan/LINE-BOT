@@ -35,6 +35,13 @@ groupsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req,
     return res.status(400).json({ message: "lineGroupId is required" });
   }
 
+  const existing = await prisma.group.findUnique({
+    where: { lineGroupId: payload.lineGroupId }
+  });
+  if (existing) {
+    return res.status(409).json({ message: "這個 LINE Group ID 已經存在，請直接編輯既有群組。" });
+  }
+
   const group = await prisma.group.create({
     data: {
       lineGroupId: payload.lineGroupId,
@@ -90,6 +97,15 @@ groupsRouter.patch("/:groupId", requireAuth, requireRole("ADMIN", "MANAGER"), as
   if (typeof payload.lineGroupId === "string") data.lineGroupId = payload.lineGroupId;
   if (typeof payload.name === "string") data.name = payload.name;
   if (typeof payload.isActive === "boolean") data.isActive = payload.isActive;
+
+  if (data.lineGroupId) {
+    const existing = await prisma.group.findUnique({
+      where: { lineGroupId: data.lineGroupId }
+    });
+    if (existing && existing.id !== req.params.groupId) {
+      return res.status(409).json({ message: "這個 LINE Group ID 已經被其他群組使用。" });
+    }
+  }
 
   const group = await prisma.group.update({
     where: { id: req.params.groupId },
