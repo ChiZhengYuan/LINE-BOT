@@ -33,7 +33,7 @@ export default function AdminsPage() {
       return;
     }
 
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router]);
 
   const createAdmin = async (event) => {

@@ -48,7 +48,7 @@ export default function RankingsPage() {
       router.replace("/login");
       return;
     }
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router, query]);
 
   return (

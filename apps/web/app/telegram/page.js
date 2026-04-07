@@ -32,7 +32,7 @@ export default function TelegramSettingsPage() {
       return;
     }
 
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router]);
 
   const save = async (event) => {

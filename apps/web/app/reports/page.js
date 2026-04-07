@@ -19,7 +19,7 @@ export default function LoanReportsPage() {
     setLoading(true);
     apiFetch("/loans/reports")
       .then((result) => setOverview(result.overview))
-      .catch(() => router.replace("/login"))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
 

@@ -22,7 +22,7 @@ export default function ListsPage() {
       router.replace("/login");
       return;
     }
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router]);
 
   const createItem = async (event) => {

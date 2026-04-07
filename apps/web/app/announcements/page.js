@@ -66,7 +66,7 @@ function AnnouncementsContent() {
       router.replace("/login");
       return;
     }
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router, query]);
 
   const create = async () => {

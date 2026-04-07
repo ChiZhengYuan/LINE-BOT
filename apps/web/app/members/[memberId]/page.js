@@ -40,7 +40,7 @@ export default function MemberDetailPage() {
       return;
     }
     if (!memberId) return;
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [memberId, router]);
 
   const save = async () => {

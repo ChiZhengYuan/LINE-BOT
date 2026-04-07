@@ -92,7 +92,7 @@ export default function GroupDetailPage() {
     }
 
     if (!groupId) return;
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [groupId, router]);
 
   const saveSettings = async () => {

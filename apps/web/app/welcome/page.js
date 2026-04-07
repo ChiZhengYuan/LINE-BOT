@@ -55,7 +55,7 @@ function WelcomeContent() {
       router.replace("/login");
       return;
     }
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router]);
 
   useEffect(() => {

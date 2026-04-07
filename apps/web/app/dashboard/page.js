@@ -42,7 +42,7 @@ export default function DashboardPage() {
         setGroups(groupsRes.groups || []);
         setOverview(overviewRes);
       })
-      .catch(() => router.replace("/login"))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
 

@@ -56,7 +56,7 @@ export default function LoanCaseDetailPage() {
       return;
     }
     if (caseId) {
-      load().catch(() => router.replace("/login"));
+      load().catch(() => {});
     }
   }, [caseId, router]);
 

@@ -53,7 +53,7 @@ export default function DailyReportsPage() {
       router.replace("/login");
       return;
     }
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router, query]);
 
   const generate = async () => {

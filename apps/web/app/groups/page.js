@@ -36,7 +36,7 @@ export default function GroupsPage() {
       return;
     }
 
-    loadGroups().catch(() => router.replace("/login"));
+    loadGroups().catch(() => {});
   }, [router]);
 
   const loadGroups = async () => {

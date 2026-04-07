@@ -44,7 +44,7 @@ export default function RulesPage() {
       return;
     }
 
-    loadGroups().catch(() => router.replace("/login"));
+    loadGroups().catch(() => {});
   }, [router]);
 
   useEffect(() => {

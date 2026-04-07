@@ -49,7 +49,7 @@ export default function NotificationsPage() {
       router.replace("/login");
       return;
     }
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router, query]);
 
   const markRead = async (id) => {

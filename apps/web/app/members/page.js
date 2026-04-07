@@ -75,7 +75,7 @@ function MembersContent() {
 
   useEffect(() => {
     if (!getToken()) return;
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router, query]);
 
   return (

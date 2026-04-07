@@ -83,7 +83,7 @@ export default function ViolationsPage() {
       return;
     }
 
-    load().catch(() => router.replace("/login"));
+    load().catch(() => {});
   }, [router, query]);
 
   const exportCsv = async () => {
