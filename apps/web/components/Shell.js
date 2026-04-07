@@ -9,12 +9,26 @@ import { apiFetch, clearToken, getUser } from "../lib/api";
 export function Shell({ children, title, subtitle }) {
   const pathname = usePathname();
   const router = useRouter();
-  const user = getUser();
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+    setUser(getUser());
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !user) return;
+    apiFetch("/notifications/unread-count")
+      .then((result) => setUnreadCount(result.unreadCount || 0))
+      .catch(() => {});
+  }, [mounted, pathname, user]);
+
   const role = user?.role;
   const isSuperAdmin = role === "SUPER_ADMIN";
   const isAdminLike = role === "ADMIN" || role === "SUPER_ADMIN";
   const isManagerLike = isAdminLike || role === "MANAGER";
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const navItems = useMemo(() => {
     const items = [
@@ -33,7 +47,7 @@ export function Shell({ children, title, subtitle }) {
       { href: "/welcome", label: "新人歡迎", show: isManagerLike },
       { href: "/announcements", label: "定時公告", show: isManagerLike },
       { href: "/auto-replies", label: "關鍵字回覆", show: isManagerLike },
-      { href: "/checkins", label: "簽到", show: isManagerLike },
+      { href: "/checkins", label: "每日簽到", show: isManagerLike },
       { href: "/missions", label: "任務", show: isManagerLike },
       { href: "/lotteries", label: "抽獎", show: isManagerLike },
       { href: "/rankings", label: "排行榜", show: isManagerLike },
@@ -46,12 +60,6 @@ export function Shell({ children, title, subtitle }) {
 
     return items.filter((item) => item.show !== false);
   }, [isAdminLike, isManagerLike, isSuperAdmin]);
-
-  useEffect(() => {
-    apiFetch("/notifications/unread-count")
-      .then((result) => setUnreadCount(result.unreadCount || 0))
-      .catch(() => {});
-  }, [pathname]);
 
   const logout = () => {
     clearToken();
@@ -127,6 +135,7 @@ export function Shell({ children, title, subtitle }) {
                   <p className="mt-1 text-xs leading-5 text-slate-300 sm:text-sm">{subtitle}</p>
                 </div>
               </div>
+
               <div className="flex items-center gap-2">
                 <Link
                   href="/notifications"
@@ -134,7 +143,7 @@ export function Shell({ children, title, subtitle }) {
                   aria-label="通知中心"
                 >
                   🔔
-                  {unreadCount > 0 ? (
+                  {mounted && unreadCount > 0 ? (
                     <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
