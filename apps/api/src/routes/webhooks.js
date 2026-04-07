@@ -6,7 +6,13 @@ import { decryptSecret } from "../services/cryptoVault.js";
 import { analyzeMessage } from "../services/ruleEngine.js";
 import { recordViolation } from "../services/violationProcessor.js";
 import { pushText, replyText, getProfile } from "../services/line.js";
-import { createNotification, ensureGroupSettings, ensureMember, logOperation, rebuildRankingsForGroup } from "../services/activity.js";
+import {
+  createNotification,
+  ensureGroupSettings,
+  ensureMember,
+  logOperation,
+  rebuildRankingsForGroup
+} from "../services/activity.js";
 import { upsertLoanCaseFromMessage } from "../services/loanAutomation.js";
 
 export const webhooksRouter = express.Router();
@@ -18,20 +24,23 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
     if ((req.params?.configId || req.params?.webhookToken) && !lineConfig) {
       return res.status(404).json({ message: "Webhook config not found" });
     }
+
     const signature = String(req.headers["x-line-signature"] || "");
     const channelSecret = lineConfig ? decryptSecret(lineConfig.channelSecretCiphertext) : env.lineChannelSecret;
-    const valid = verifySignature(rawBody, signature, channelSecret);
-
-    if (!valid) {
+    if (!verifySignature(rawBody, signature, channelSecret)) {
       return res.status(401).json({ message: "Invalid signature" });
     }
+
+    const lineAccessToken = lineConfig
+      ? decryptSecret(lineConfig.channelAccessTokenCiphertext) || env.lineChannelAccessToken
+      : env.lineChannelAccessToken;
 
     const payload = JSON.parse(rawBody.toString("utf8"));
     const events = Array.isArray(payload.events) ? payload.events : [];
 
     for (const event of events) {
       if (event.type === "memberJoined") {
-        await handleMemberJoined(event, lineConfig?.ownerAdminId || null);
+        await handleMemberJoined(event, lineConfig?.ownerAdminId || null, lineAccessToken);
         continue;
       }
 
@@ -46,11 +55,11 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
       }
 
       const group = await upsertGroup(lineGroupId, lineConfig?.ownerAdminId || null);
-      const profile = await getProfile(lineUserId).catch(() => null);
+      const profile = await getProfile(lineUserId, lineAccessToken).catch(() => null);
       const member = await ensureMember({
         group,
         lineUserId,
-        displayName: profile?.displayName || profile?.displayName || null
+        displayName: profile?.displayName || null
       });
 
       await prisma.member.update({
@@ -111,13 +120,14 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
           group,
           messageLog,
           lineUserId,
-          analysis
+          analysis,
+          accessToken: lineAccessToken
         });
       }
 
       await handleCheckin(group, member, event.message.text);
       await handleMissions(group, member, event.message.text);
-      await handleAutoReply(group, event.message.text, event.replyToken);
+      await handleAutoReply(group, event.message.text, event.replyToken, lineAccessToken);
 
       await upsertLoanCaseFromMessage({
         group,
@@ -129,11 +139,16 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
       });
 
       if (analysis.actionTaken === "WARNING") {
-        await sendConversationMessage({
-          lineConversationId: lineGroupId,
-          replyToken: event.replyToken,
-          text: group.ruleSetting?.warningMessage || "請注意群組規範，系統已記錄此次行為。"
-        });
+        try {
+          await sendConversationMessage({
+            lineConversationId: lineGroupId,
+            replyToken: event.replyToken,
+            text: group.ruleSetting?.warningMessage || "請注意群組規範，系統已記錄此次內容。",
+            accessToken: lineAccessToken
+          });
+        } catch (error) {
+          console.error("Failed to send warning message:", error?.message || error);
+        }
       }
     }
 
@@ -143,7 +158,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
   }
 });
 
-async function handleMemberJoined(event, ownerAdminId = null) {
+async function handleMemberJoined(event, ownerAdminId = null, accessToken = null) {
   const lineGroupId = event.source?.groupId || event.source?.roomId;
   if (!lineGroupId) return;
 
@@ -153,7 +168,7 @@ async function handleMemberJoined(event, ownerAdminId = null) {
 
   for (const joined of joinedMembers) {
     const lineUserId = joined.userId;
-    const profile = await getProfile(lineUserId).catch(() => null);
+    const profile = await getProfile(lineUserId, accessToken).catch(() => null);
     const member = await ensureMember({
       group,
       lineUserId,
@@ -164,21 +179,25 @@ async function handleMemberJoined(event, ownerAdminId = null) {
       groupId: group.id,
       memberId: member.id,
       type: "NEW_MEMBER",
-      title: "新成員加入",
-      content: `${profile?.displayName || lineUserId} 加入了群組`
+      title: "新人加入",
+      content: `${profile?.displayName || lineUserId} 加入群組`
     });
 
     await logOperation({
       groupId: group.id,
       memberId: member.id,
       eventType: "MEMBER_UPDATED",
-      title: "新成員加入",
+      title: "新人加入",
       detail: `${profile?.displayName || lineUserId} 加入群組`
     });
 
     if (settings.welcomeSetting?.enabled) {
       const message = buildWelcomeMessage(settings.welcomeSetting, profile?.displayName || lineUserId);
-      await pushText(group.lineGroupId, message);
+      try {
+        await pushText(group.lineGroupId, message, accessToken);
+      } catch (error) {
+        console.error("Failed to send welcome message:", error?.message || error);
+      }
     }
   }
 
@@ -242,8 +261,8 @@ async function handleCheckin(group, member, content) {
     groupId: group.id,
     memberId: member.id,
     type: "NEW_MEMBER",
-    title: "簽到完成",
-    content: `${member.displayName || member.userId} 完成每日簽到`
+    title: "簽到成功",
+    content: `${member.displayName || member.userId} 已完成簽到`
   });
 }
 
@@ -324,7 +343,7 @@ async function handleMissions(group, member, content) {
   await rebuildRankingsForGroup(group.id).catch(() => {});
 }
 
-async function handleAutoReply(group, content, replyToken) {
+async function handleAutoReply(group, content, replyToken, accessToken = null) {
   const settings = await ensureGroupSettings(group.id);
   if (settings.groupSetting?.keywordAutoReplyEnabled === false) return;
 
@@ -353,22 +372,27 @@ async function handleAutoReply(group, content, replyToken) {
       }
     });
 
-    await sendConversationMessage({
-      lineConversationId: group.lineGroupId,
-      replyToken,
-      text: rule.responseType === "FLEX" && rule.responseFlex ? rule.responseText || "已收到" : rule.responseText
-    });
+    try {
+      await sendConversationMessage({
+        lineConversationId: group.lineGroupId,
+        replyToken,
+        text: rule.responseType === "FLEX" && rule.responseFlex ? rule.responseText || "已觸發回覆" : rule.responseText,
+        accessToken
+      });
+    } catch (error) {
+      console.error("Failed to send auto-reply message:", error?.message || error);
+    }
     return;
   }
 }
 
-async function sendConversationMessage({ lineConversationId, replyToken, text }) {
+async function sendConversationMessage({ lineConversationId, replyToken, text, accessToken = null }) {
   const message = String(text || "").trim();
   if (!message) return;
 
   if (replyToken) {
     try {
-      await replyText(replyToken, message);
+      await replyText(replyToken, message, accessToken);
       return;
     } catch (error) {
       console.warn("LINE reply failed, fallback to push:", error?.message || error);
@@ -376,7 +400,7 @@ async function sendConversationMessage({ lineConversationId, replyToken, text })
   }
 
   if (lineConversationId) {
-    await pushText(lineConversationId, message);
+    await pushText(lineConversationId, message, accessToken);
   }
 }
 
@@ -396,7 +420,7 @@ function matchAutoReply(rule, content) {
 
 function buildWelcomeMessage(welcomeSetting, name) {
   return [
-    `👋 歡迎 ${name} 加入群組`,
+    `歡迎 ${name} 加入群組`,
     "",
     welcomeSetting.welcomeMessage,
     "",
@@ -433,7 +457,7 @@ async function upsertGroup(lineGroupId, ownerAdminId = null) {
       welcomeSetting: {
         create: {
           enabled: false,
-          welcomeMessage: "歡迎加入群組，請先閱讀群規。",
+          welcomeMessage: "歡迎加入群組",
           groupRulesMessage: "請遵守群組規範，避免洗版、廣告與違規連結。"
         }
       }

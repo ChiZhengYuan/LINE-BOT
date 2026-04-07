@@ -5,7 +5,7 @@ import { sendTelegramMessage } from "./telegram.js";
 import { getTelegramSettings } from "./telegramSettings.js";
 import { createNotification, logOperation, rebuildRankingsForGroup } from "./activity.js";
 
-export async function recordViolation({ group, messageLog, lineUserId, analysis }) {
+export async function recordViolation({ group, messageLog, lineUserId, analysis, accessToken = null }) {
   const created = [];
 
   for (const match of analysis.matches) {
@@ -73,7 +73,7 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis 
     const notice = buildGroupNotice(group, analysis);
     if (notice) {
       try {
-        await pushText(group.lineGroupId, notice);
+        await pushText(group.lineGroupId, notice, accessToken);
       } catch (error) {
         console.error("Failed to push group notification", error);
       }
@@ -87,7 +87,7 @@ export async function recordViolation({ group, messageLog, lineUserId, analysis 
 
     for (const adminId of targets) {
       try {
-        await pushText(adminId, buildAdminNotice(group, analysis));
+        await pushText(adminId, buildAdminNotice(group, analysis), accessToken);
       } catch (error) {
         console.error("Failed to push LINE admin notification", error);
       }
