@@ -6654,7 +6654,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
 
 
 
-      if (!lineGroupId || !lineUserId) {
+      if (!lineGroupId) {
 
 
 
