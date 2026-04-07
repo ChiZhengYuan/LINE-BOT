@@ -17,6 +17,31 @@ const emptyFilters = {
   to: ""
 };
 
+const STATUS_LABELS = {
+  FLAGGED: "已標記",
+  REVIEWED: "已審核",
+  ESCALATED: "已升級",
+  KICK_PENDING: "待踢",
+  RESOLVED: "已處理"
+};
+
+const ACTION_LABELS = {
+  NONE: "無",
+  WARNING: "群內警告",
+  BACKOFFICE_TAG: "後台標記",
+  ADMIN_NOTIFY: "通知管理員",
+  PENDING_KICK: "加入待踢",
+  KICKED: "已踢出"
+};
+
+const RULE_LABELS = {
+  URL: "網址保護",
+  INVITE: "邀請連結",
+  BLACKLIST: "黑名單詞",
+  SPAM: "洗版偵測",
+  AI: "AI 判斷"
+};
+
 export default function ViolationsPage() {
   const router = useRouter();
   const [rows, setRows] = useState([]);
@@ -108,28 +133,28 @@ export default function ViolationsPage() {
           <TextField label="關鍵字" value={filters.q} onChange={(value) => setFilters({ ...filters, q: value })} />
           <SelectField label="規則類型" value={filters.ruleType} onChange={(value) => setFilters({ ...filters, ruleType: value })}>
             <option value="">全部</option>
-            <option value="URL">URL</option>
-            <option value="INVITE">INVITE</option>
-            <option value="BLACKLIST">BLACKLIST</option>
-            <option value="SPAM">SPAM</option>
-            <option value="AI">AI</option>
+            <option value="URL">網址保護</option>
+            <option value="INVITE">邀請連結</option>
+            <option value="BLACKLIST">黑名單詞</option>
+            <option value="SPAM">洗版偵測</option>
+            <option value="AI">AI 判斷</option>
           </SelectField>
           <SelectField label="狀態" value={filters.status} onChange={(value) => setFilters({ ...filters, status: value })}>
             <option value="">全部</option>
-            <option value="FLAGGED">FLAGGED</option>
-            <option value="REVIEWED">REVIEWED</option>
-            <option value="ESCALATED">ESCALATED</option>
-            <option value="KICK_PENDING">KICK_PENDING</option>
-            <option value="RESOLVED">RESOLVED</option>
+            <option value="FLAGGED">已標記</option>
+            <option value="REVIEWED">已審核</option>
+            <option value="ESCALATED">已升級</option>
+            <option value="KICK_PENDING">待踢</option>
+            <option value="RESOLVED">已處理</option>
           </SelectField>
           <SelectField label="動作" value={filters.actionTaken} onChange={(value) => setFilters({ ...filters, actionTaken: value })}>
             <option value="">全部</option>
-            <option value="NONE">NONE</option>
-            <option value="WARNING">WARNING</option>
-            <option value="BACKOFFICE_TAG">BACKOFFICE_TAG</option>
-            <option value="ADMIN_NOTIFY">ADMIN_NOTIFY</option>
-            <option value="PENDING_KICK">PENDING_KICK</option>
-            <option value="KICKED">KICKED</option>
+            <option value="NONE">無</option>
+            <option value="WARNING">群內警告</option>
+            <option value="BACKOFFICE_TAG">後台標記</option>
+            <option value="ADMIN_NOTIFY">通知管理員</option>
+            <option value="PENDING_KICK">加入待踢</option>
+            <option value="KICKED">已踢出</option>
           </SelectField>
           <TextField label="起始日期" type="date" value={filters.from} onChange={(value) => setFilters({ ...filters, from: value })} />
           <TextField label="結束日期" type="date" value={filters.to} onChange={(value) => setFilters({ ...filters, to: value })} />
@@ -164,10 +189,9 @@ export default function ViolationsPage() {
           return (
             <article key={item.id} className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-glow backdrop-blur">
               <div className="flex flex-wrap items-center gap-3 text-sm">
-                <Badge tone="cyan">{item.ruleType}</Badge>
+                <Badge tone="cyan">{labelOf(RULE_LABELS, item.ruleType)}</Badge>
                 <span className="text-slate-400">{formatTime(item.createdAt)}</span>
                 <span className="text-slate-500">{item.group?.name || item.group?.lineGroupId || "未命名群組"}</span>
-                <span className="font-mono text-xs text-slate-300">{item.lineGroupId}</span>
               </div>
 
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -202,10 +226,10 @@ export default function ViolationsPage() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <Metric label="分數" value={item.points} />
                   <Metric label="風險分數" value={Math.round(item.riskScore || 0)} />
-                  <Metric label="狀態" value={item.status} />
+                  <Metric label="狀態" value={labelOf(STATUS_LABELS, item.status)} />
                   <Metric label="分類" value={item.category || "-"} />
                   <Metric label="信心值" value={formatConfidence(item.confidence)} />
-                  <Metric label="動作" value={item.actionTaken || "NONE"} />
+                  <Metric label="動作" value={labelOf(ACTION_LABELS, item.actionTaken)} />
                 </div>
               </div>
             </article>
@@ -272,6 +296,10 @@ function Badge({ tone = "cyan", children }) {
   };
 
   return <span className={`rounded-full border px-3 py-1 text-xs font-medium ${tones[tone]}`}>{children}</span>;
+}
+
+function labelOf(map, key) {
+  return map[key] || key || "未知";
 }
 
 function formatTime(value) {

@@ -4,12 +4,7 @@ import { pushText } from "./line.js";
 import { sendTelegramMessage } from "./telegram.js";
 import { getTelegramSettings } from "./telegramSettings.js";
 
-export async function recordViolation({
-  group,
-  messageLog,
-  lineUserId,
-  analysis
-}) {
+export async function recordViolation({ group, messageLog, lineUserId, analysis }) {
   const created = [];
 
   for (const match of analysis.matches) {
@@ -45,7 +40,7 @@ export async function recordViolation({
   });
 
   if (analysis.actionTaken !== "NONE") {
-    const notice = buildGroupNotice(group.lineGroupId, analysis);
+    const notice = buildGroupNotice(group, analysis);
     if (notice) {
       try {
         await pushText(group.lineGroupId, notice);
@@ -62,7 +57,7 @@ export async function recordViolation({
 
     for (const adminId of targets) {
       try {
-        await pushText(adminId, `群組 ${group.lineGroupId} 觸發違規通知：${analysis.aiAssessment.reason}`);
+        await pushText(adminId, buildAdminNotice(group, analysis));
       } catch (error) {
         console.error("Failed to push LINE admin notification", error);
       }
@@ -75,7 +70,7 @@ export async function recordViolation({
 
     for (const chatId of telegramTargets) {
       try {
-        await sendTelegramMessage(chatId, `群組 ${group.lineGroupId} 觸發違規通知：${analysis.aiAssessment.reason}`);
+        await sendTelegramMessage(chatId, buildAdminNotice(group, analysis));
       } catch (error) {
         console.error("Failed to push Telegram notification", error);
       }
@@ -85,25 +80,80 @@ export async function recordViolation({
   return created;
 }
 
-function buildGroupNotice(lineGroupId, analysis) {
-  const lines = [];
+function buildGroupNotice(group, analysis) {
+  const titleMap = {
+    WARNING: "⚠️ 已觸發警告",
+    ADMIN_NOTIFY: "📣 已通知管理員",
+    PENDING_KICK: "🧾 已加入待踢清單",
+    KICKED: "⛔ 已執行踢出處置"
+  };
 
-  if (analysis.actionTaken === "WARNING") {
-    lines.push("請注意群組規範，系統已偵測到違規內容。");
-  } else if (analysis.actionTaken === "ADMIN_NOTIFY") {
-    lines.push("系統已通知管理員，請留意群組規範。");
-  } else if (analysis.actionTaken === "PENDING_KICK") {
-    lines.push("系統已將此成員加入待踢清單。");
-  } else if (analysis.actionTaken === "KICKED") {
-    lines.push("系統已執行踢出處置。");
+  const title = titleMap[analysis.actionTaken];
+  if (!title) return null;
+
+  const lines = [title];
+  if (group?.name) {
+    lines.push(`群組：${group.name}`);
   }
-
-  if (lines.length === 0) {
-    return null;
-  }
-
-  lines.push(`群組：${lineGroupId}`);
   lines.push(`原因：${analysis.aiAssessment.reason}`);
 
+  if (analysis.matches?.length) {
+    const matchedRules = analysis.matches.map((item) => formatRule(item.ruleType)).join("、");
+    lines.push(`觸發規則：${matchedRules}`);
+  }
+
   return lines.join("\n");
+}
+
+function buildAdminNotice(group, analysis) {
+  const titleMap = {
+    WARNING: "⚠️ 群組發現違規內容",
+    ADMIN_NOTIFY: "📣 群組需要管理員注意",
+    PENDING_KICK: "🧾 群組待踢清單更新",
+    KICKED: "⛔ 群組已執行踢出處置"
+  };
+
+  const title = titleMap[analysis.actionTaken] || "📌 群組通知";
+  const lines = [title];
+  if (group?.name) {
+    lines.push(`群組：${group.name}`);
+  }
+  lines.push(`原因：${analysis.aiAssessment.reason}`);
+  lines.push(`狀態：${formatStatus(analysis.status)}`);
+  lines.push(`動作：${formatAction(analysis.actionTaken)}`);
+  return lines.join("\n");
+}
+
+function formatRule(ruleType) {
+  const map = {
+    URL: "網址保護",
+    INVITE: "邀請連結",
+    BLACKLIST: "黑名單詞",
+    SPAM: "洗版偵測",
+    AI: "AI 判斷"
+  };
+  return map[ruleType] || ruleType || "未知規則";
+}
+
+function formatStatus(status) {
+  const map = {
+    FLAGGED: "已標記",
+    REVIEWED: "待審",
+    ESCALATED: "已升級",
+    KICK_PENDING: "待踢",
+    RESOLVED: "已處理"
+  };
+  return map[status] || status || "未知";
+}
+
+function formatAction(action) {
+  const map = {
+    NONE: "無",
+    WARNING: "群內警告",
+    BACKOFFICE_TAG: "後台標記",
+    ADMIN_NOTIFY: "通知管理員",
+    PENDING_KICK: "加入待踢",
+    KICKED: "已踢出"
+  };
+  return map[action] || action || "未知";
 }
