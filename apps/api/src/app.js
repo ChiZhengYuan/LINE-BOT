@@ -18,6 +18,7 @@ import { missionsRouter } from "./routes/missions.js";
 import { lotteriesRouter } from "./routes/lotteries.js";
 import { rankingsRouter } from "./routes/rankings.js";
 import { settingsRouter } from "./routes/settings.js";
+import { lineConfigsRouter } from "./routes/lineConfigs.js";
 import { violationsRouter } from "./routes/violations.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { errorHandler, notFound } from "./middleware/error.js";
@@ -42,6 +43,7 @@ export function createApp() {
   });
 
   app.use("/api/webhooks", webhooksRouter);
+  app.use("/api/line", webhooksRouter);
   app.use(express.json({ limit: "2mb" }));
 
   app.use("/api/auth", authRouter);
@@ -61,6 +63,7 @@ export function createApp() {
   app.use("/api/lotteries", lotteriesRouter);
   app.use("/api/rankings", rankingsRouter);
   app.use("/api/settings", settingsRouter);
+  app.use("/api/line-configs", lineConfigsRouter);
   app.use("/api/violations", violationsRouter);
 
   app.use(notFound);

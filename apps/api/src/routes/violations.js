@@ -1,11 +1,12 @@
 import express from "express";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
+import { getTenantOwnerId } from "../middleware/tenant.js";
 
 export const violationsRouter = express.Router();
 
 violationsRouter.get("/", requireAuth, async (req, res) => {
-  const where = buildWhere(req.query);
+  const where = buildWhere(req);
   const violations = await prisma.violation.findMany({
     where,
     include: {
@@ -20,7 +21,7 @@ violationsRouter.get("/", requireAuth, async (req, res) => {
 });
 
 violationsRouter.get("/export", requireAuth, async (req, res) => {
-  const where = buildWhere(req.query);
+  const where = buildWhere(req);
   const violations = await prisma.violation.findMany({
     where,
     include: {
@@ -73,7 +74,7 @@ violationsRouter.get("/export", requireAuth, async (req, res) => {
 });
 
 violationsRouter.get("/ai", requireAuth, async (req, res) => {
-  const where = buildAiWhere(req.query);
+  const where = buildAiWhere(req);
   const assessments = await prisma.aiAssessment.findMany({
     where,
     include: { group: true, messageLog: true },
@@ -85,7 +86,8 @@ violationsRouter.get("/ai", requireAuth, async (req, res) => {
 });
 
 violationsRouter.get("/messages", requireAuth, async (req, res) => {
-  const where = {};
+  const ownerAdminId = getTenantOwnerId(req);
+  const where = ownerAdminId ? { ownerAdminId } : {};
   if (req.query.groupId) {
     where.groupId = String(req.query.groupId);
   }
@@ -100,8 +102,10 @@ violationsRouter.get("/messages", requireAuth, async (req, res) => {
   res.json({ messages });
 });
 
-function buildWhere(query) {
-  const where = {};
+function buildWhere(req) {
+  const query = req.query;
+  const ownerAdminId = getTenantOwnerId(req);
+  const where = ownerAdminId ? { ownerAdminId } : {};
 
   if (query.groupId) {
     where.groupId = String(query.groupId);
@@ -148,8 +152,10 @@ function buildWhere(query) {
   return where;
 }
 
-function buildAiWhere(query) {
-  const where = {};
+function buildAiWhere(req) {
+  const query = req.query;
+  const ownerAdminId = getTenantOwnerId(req);
+  const where = ownerAdminId ? { ownerAdminId } : {};
 
   if (query.groupId) {
     where.groupId = String(query.groupId);

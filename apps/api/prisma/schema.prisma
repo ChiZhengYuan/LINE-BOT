@@ -8,9 +8,27 @@ datasource db {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   MANAGER
   VIEWER
+}
+
+enum AdminStatus {
+  ACTIVE
+  EXPIRED
+  BLOCKED
+}
+
+enum AdminPlanType {
+  PERMANENT
+  EXPIRING
+}
+
+enum LineConfigStatus {
+  PENDING
+  VERIFIED
+  FAILED
 }
 
 enum RuleType {
@@ -152,10 +170,98 @@ model AdminUser {
   passwordHash String
   name         String?
   role         Role           @default(ADMIN)
+  status       AdminStatus    @default(ACTIVE)
+  planType     AdminPlanType  @default(PERMANENT)
+  expireAt     DateTime?
+  blockedAt    DateTime?
+  blockedReason String?
+  ownerAdminId String?
+  lastLoginAt  DateTime?
+  lastLoginIp  String?
+  lastLoginUserAgent String?
   operationLogs OperationLog[]
   loanCaseStatusLogs LoanCaseStatusLog[]
+  loginLogs    AdminLoginLog[]
+  activityLogs AdminActivityLog[]
+  notifications AdminNotification[]
+  lineDeveloperConfigs LineDeveloperConfig[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+}
+
+model AdminLoginLog {
+  id           String       @id @default(cuid())
+  ownerAdminId String?
+  adminUserId  String?
+  adminUser    AdminUser?   @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  email        String
+  success      Boolean      @default(false)
+  reason       String?
+  ipAddress    String?
+  userAgent    String?
+  meta         Json?
+  createdAt    DateTime     @default(now())
+
+  @@index([ownerAdminId, createdAt])
+  @@index([email, createdAt])
+}
+
+model AdminActivityLog {
+  id           String       @id @default(cuid())
+  ownerAdminId String?
+  adminUserId  String?
+  adminUser    AdminUser?   @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  eventType    String
+  title        String
+  detail       String?      @db.Text
+  meta         Json?
+  createdAt    DateTime     @default(now())
+
+  @@index([ownerAdminId, createdAt])
+  @@index([adminUserId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model AdminNotification {
+  id           String       @id @default(cuid())
+  ownerAdminId String?
+  adminUserId  String?
+  adminUser    AdminUser?   @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  dedupeKey    String?      @unique
+  title        String
+  content      String       @db.Text
+  type         String
+  meta         Json?
+  isRead       Boolean      @default(false)
+  readAt       DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@index([ownerAdminId, isRead, createdAt])
+}
+
+model LineDeveloperConfig {
+  id                           String           @id @default(cuid())
+  ownerAdminId                 String?
+  adminUserId                  String?
+  adminUser                    AdminUser?       @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  configName                   String
+  channelId                    String
+  channelSecretCiphertext      String
+  channelAccessTokenCiphertext String
+  basicId                      String?
+  botId                        String?
+  webhookUrl                   String?
+  webhookToken                 String           @unique
+  isActive                     Boolean          @default(true)
+  isDefault                    Boolean          @default(false)
+  status                       LineConfigStatus @default(PENDING)
+  lastVerifiedAt               DateTime?
+  lastVerifiedError            String?
+  createdAt                    DateTime         @default(now())
+  updatedAt                    DateTime         @updatedAt
+
+  @@index([ownerAdminId, isActive])
+  @@index([ownerAdminId, isDefault])
 }
 
 model AppSetting {
@@ -170,6 +276,7 @@ model Group {
   id               String            @id @default(cuid())
   lineGroupId      String            @unique
   name             String?
+  ownerAdminId     String?
   isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -201,6 +308,7 @@ model Group {
 model RuleSetting {
   id                         String   @id @default(cuid())
   groupId                    String   @unique
+  ownerAdminId String?
   group                      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   protectUrl                 Boolean  @default(true)
   protectInvite              Boolean  @default(true)
@@ -223,6 +331,7 @@ model RuleSetting {
 model GroupSetting {
   id                        String   @id @default(cuid())
   groupId                   String   @unique
+  ownerAdminId String?
   group                     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   autoEnforcement           Boolean  @default(true)
   aiEnabled                 Boolean  @default(true)
@@ -247,6 +356,7 @@ model GroupSetting {
 model Member {
   id                    String          @id @default(cuid())
   groupId               String
+  ownerAdminId String?
   group                 Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   userId                String
   displayName           String?
@@ -280,6 +390,7 @@ model Member {
 model MemberStats {
   id                String   @id @default(cuid())
   groupId           String
+  ownerAdminId String?
   group             Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   memberId          String   @unique
   member            Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -296,6 +407,7 @@ model MemberStats {
 model MessageLog {
   id           String       @id @default(cuid())
   groupId      String
+  ownerAdminId String?
   group        Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   lineGroupId  String
   lineUserId   String
@@ -311,6 +423,7 @@ model MessageLog {
 model Violation {
   id            String           @id @default(cuid())
   groupId       String
+  ownerAdminId String?
   group         Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
   messageLogId  String?
   messageLog    MessageLog?      @relation(fields: [messageLogId], references: [id], onDelete: SetNull)
@@ -331,6 +444,7 @@ model Violation {
 model AiAssessment {
   id           String      @id @default(cuid())
   groupId      String
+  ownerAdminId String?
   group        Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
   messageLogId String      @unique
   messageLog   MessageLog  @relation(fields: [messageLogId], references: [id], onDelete: Cascade)
@@ -346,6 +460,7 @@ model AiAssessment {
 model BlacklistEntry {
   id        String   @id @default(cuid())
   groupId   String
+  ownerAdminId String?
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   value     String
   note      String?
@@ -359,6 +474,7 @@ model BlacklistEntry {
 model WhitelistEntry {
   id        String   @id @default(cuid())
   groupId   String
+  ownerAdminId String?
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   value     String
   note      String?
@@ -372,6 +488,7 @@ model WhitelistEntry {
 model PendingAction {
   id           String   @id @default(cuid())
   groupId      String
+  ownerAdminId String?
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   lineUserId   String
   lineGroupId  String
@@ -388,6 +505,7 @@ model OperationLog {
   adminUserId String?
   adminUser   AdminUser?     @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
   groupId     String?
+  ownerAdminId String?
   group       Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
   memberId    String?
   member      Member?        @relation(fields: [memberId], references: [id], onDelete: SetNull)
@@ -406,6 +524,7 @@ model OperationLog {
 model Notification {
   id          String           @id @default(cuid())
   groupId     String?
+  ownerAdminId String?
   group       Group?           @relation(fields: [groupId], references: [id], onDelete: SetNull)
   memberId    String?
   member      Member?          @relation(fields: [memberId], references: [id], onDelete: SetNull)
@@ -425,6 +544,7 @@ model Notification {
 model WelcomeSetting {
   id               String   @id @default(cuid())
   groupId          String   @unique
+  ownerAdminId String?
   group            Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   enabled          Boolean  @default(false)
   welcomeMessage   String   @db.Text
@@ -437,6 +557,7 @@ model WelcomeSetting {
 model Announcement {
   id            String         @id @default(cuid())
   groupId       String
+  ownerAdminId String?
   group         Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   title         String
   content       String         @db.Text
@@ -456,6 +577,7 @@ model Announcement {
 
 model AnnouncementJob {
   id             String        @id @default(cuid())
+  ownerAdminId   String?
   announcementId String
   announcement   Announcement  @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   runAt          DateTime
@@ -471,6 +593,7 @@ model AnnouncementJob {
 model AutoReplyRule {
   id             String       @id @default(cuid())
   groupId        String
+  ownerAdminId String?
   group          Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   keyword        String
   matchType      MatchType    @default(CONTAINS)
@@ -490,6 +613,7 @@ model AutoReplyRule {
 model Checkin {
   id            String   @id @default(cuid())
   groupId       String
+  ownerAdminId String?
   group         Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   memberId      String
   member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -506,6 +630,7 @@ model Checkin {
 model Mission {
   id          String      @id @default(cuid())
   groupId     String
+  ownerAdminId String?
   group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
   title       String
   description String?     @db.Text
@@ -523,6 +648,7 @@ model Mission {
 
 model MissionProgress {
   id               String   @id @default(cuid())
+  ownerAdminId     String?
   missionId        String
   mission          Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
   memberId         String
@@ -543,6 +669,7 @@ model MissionProgress {
 model Lottery {
   id           String         @id @default(cuid())
   groupId      String
+  ownerAdminId String?
   group        Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   title        String
   description  String?        @db.Text
@@ -562,6 +689,7 @@ model Lottery {
 
 model LotteryEntry {
   id          String    @id @default(cuid())
+  ownerAdminId String?
   lotteryId   String
   lottery     Lottery   @relation(fields: [lotteryId], references: [id], onDelete: Cascade)
   memberId    String
@@ -576,6 +704,7 @@ model LotteryEntry {
 
 model LotteryWinner {
   id          String    @id @default(cuid())
+  ownerAdminId String?
   lotteryId   String
   lottery     Lottery   @relation(fields: [lotteryId], references: [id], onDelete: Cascade)
   memberId    String
@@ -592,6 +721,7 @@ model LotteryWinner {
 model Ranking {
   id           String         @id @default(cuid())
   groupId      String
+  ownerAdminId String?
   group        Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   memberId     String
   member       Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -613,6 +743,7 @@ model Ranking {
 model LoanCase {
   id             String           @id @default(cuid())
   groupId        String
+  ownerAdminId String?
   group          Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
   customerName   String
   phone          String?
@@ -639,6 +770,7 @@ model LoanCase {
 model LoanCaseStatusLog {
   id             String          @id @default(cuid())
   groupId        String
+  ownerAdminId String?
   group          Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   loanCaseId     String
   loanCase       LoanCase        @relation(fields: [loanCaseId], references: [id], onDelete: Cascade)
@@ -657,6 +789,7 @@ model LoanCaseStatusLog {
 model LoanCaseReminder {
   id            String             @id @default(cuid())
   groupId       String
+  ownerAdminId String?
   group         Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
   loanCaseId    String
   loanCase      LoanCase           @relation(fields: [loanCaseId], references: [id], onDelete: Cascade)
@@ -677,6 +810,7 @@ model LoanCaseReminder {
 model DailyCaseReport {
   id           String     @id @default(cuid())
   groupId      String
+  ownerAdminId String?
   group        Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   reportDate   DateTime
   periodKey    String

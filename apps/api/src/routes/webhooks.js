@@ -2,6 +2,7 @@ import express from "express";
 import crypto from "node:crypto";
 import { prisma } from "../config/prisma.js";
 import { env } from "../config/env.js";
+import { decryptSecret } from "../services/cryptoVault.js";
 import { analyzeMessage } from "../services/ruleEngine.js";
 import { recordViolation } from "../services/violationProcessor.js";
 import { pushText, replyText, getProfile } from "../services/line.js";
@@ -10,11 +11,16 @@ import { upsertLoanCaseFromMessage } from "../services/loanAutomation.js";
 
 export const webhooksRouter = express.Router();
 
-webhooksRouter.post("/line", express.raw({ type: "application/json" }), async (req, res, next) => {
+webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({ type: "application/json" }), async (req, res, next) => {
   try {
-    const signature = String(req.headers["x-line-signature"] || "");
     const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}));
-    const valid = verifySignature(rawBody, signature, env.lineChannelSecret);
+    const lineConfig = await resolveWebhookConfig(req);
+    if ((req.params?.configId || req.params?.webhookToken) && !lineConfig) {
+      return res.status(404).json({ message: "Webhook config not found" });
+    }
+    const signature = String(req.headers["x-line-signature"] || "");
+    const channelSecret = lineConfig ? decryptSecret(lineConfig.channelSecretCiphertext) : env.lineChannelSecret;
+    const valid = verifySignature(rawBody, signature, channelSecret);
 
     if (!valid) {
       return res.status(401).json({ message: "Invalid signature" });
@@ -25,7 +31,7 @@ webhooksRouter.post("/line", express.raw({ type: "application/json" }), async (r
 
     for (const event of events) {
       if (event.type === "memberJoined") {
-        await handleMemberJoined(event);
+        await handleMemberJoined(event, lineConfig?.ownerAdminId || null);
         continue;
       }
 
@@ -39,7 +45,7 @@ webhooksRouter.post("/line", express.raw({ type: "application/json" }), async (r
         continue;
       }
 
-      const group = await upsertGroup(lineGroupId);
+      const group = await upsertGroup(lineGroupId, lineConfig?.ownerAdminId || null);
       const profile = await getProfile(lineUserId).catch(() => null);
       const member = await ensureMember({
         group,
@@ -133,11 +139,11 @@ webhooksRouter.post("/line", express.raw({ type: "application/json" }), async (r
   }
 });
 
-async function handleMemberJoined(event) {
+async function handleMemberJoined(event, ownerAdminId = null) {
   const lineGroupId = event.source?.groupId || event.source?.roomId;
   if (!lineGroupId) return;
 
-  const group = await upsertGroup(lineGroupId);
+  const group = await upsertGroup(lineGroupId, ownerAdminId);
   const joinedMembers = Array.isArray(event.joined?.members) ? event.joined.members : [];
   const settings = await ensureGroupSettings(group.id);
 
@@ -389,12 +395,13 @@ function verifySignature(rawBody, signature, channelSecret) {
   return digest === signature;
 }
 
-async function upsertGroup(lineGroupId) {
+async function upsertGroup(lineGroupId, ownerAdminId = null) {
   const group = await prisma.group.upsert({
     where: { lineGroupId },
-    update: {},
+    update: ownerAdminId ? { ownerAdminId } : {},
     create: {
       lineGroupId,
+      ownerAdminId,
       ruleSetting: {
         create: {}
       },
@@ -430,4 +437,21 @@ async function upsertGroup(lineGroupId) {
     where: { id: group.id },
     include: { ruleSetting: true, groupSetting: true, welcomeSetting: true }
   });
+}
+
+async function resolveWebhookConfig(req) {
+  const configId = req.params?.configId;
+  const webhookToken = req.params?.webhookToken;
+  if (!configId || !webhookToken) {
+    return null;
+  }
+
+  const config = await prisma.lineDeveloperConfig.findUnique({
+    where: { id: configId }
+  });
+  if (!config || !config.isActive || config.webhookToken !== webhookToken) {
+    return null;
+  }
+
+  return config;
 }

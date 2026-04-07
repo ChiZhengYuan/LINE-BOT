@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
+import { getTenantOwnerId } from "../middleware/tenant.js";
 import { parseBody, parseQuery } from "../lib/validation.js";
 import { logOperation, rebuildRankingsForGroup } from "../services/activity.js";
 
@@ -32,9 +33,10 @@ membersRouter.get("/", requireAuth, async (req, res) => {
   const query = parseQuery(listSchema, req, res);
   if (!query) return;
 
+  const ownerAdminId = getTenantOwnerId(req);
   const page = query.page || 1;
   const limit = query.limit || 20;
-  const where = {};
+  const where = ownerAdminId ? { ownerAdminId } : {};
 
   if (query.groupId) where.groupId = query.groupId;
   if (query.isBlacklisted === "true") where.isBlacklisted = true;
@@ -66,8 +68,12 @@ membersRouter.get("/", requireAuth, async (req, res) => {
 });
 
 membersRouter.get("/:memberId", requireAuth, async (req, res) => {
-  const item = await prisma.member.findUnique({
-    where: { id: req.params.memberId },
+  const ownerAdminId = getTenantOwnerId(req);
+  const item = await prisma.member.findFirst({
+    where: {
+      id: req.params.memberId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    },
     include: {
       group: true,
       stats: true,
@@ -91,6 +97,17 @@ membersRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req
   const data = parseBody(memberSchema, req, res);
   if (!data) return;
 
+  const ownerAdminId = getTenantOwnerId(req);
+  const group = await prisma.group.findFirst({
+    where: {
+      id: data.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!group) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
   const item = await prisma.member.upsert({
     where: {
       groupId_userId: {
@@ -106,6 +123,7 @@ membersRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req
     },
     create: {
       groupId: data.groupId,
+      ownerAdminId,
       userId: data.userId,
       displayName: data.displayName ?? null,
       note: data.note ?? null,
@@ -116,12 +134,13 @@ membersRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req
 
   await logOperation({
     adminUserId: req.user.sub,
+    ownerAdminId: ownerAdminId || null,
     groupId: data.groupId,
     memberId: item.id,
     eventType: "MEMBER_UPDATED",
     title: "更新成員",
-    detail: `已建立或更新成員 ${data.userId}`
-  });
+    detail: `更新會員 ${data.userId}`
+  }).catch(() => {});
 
   await rebuildRankingsForGroup(data.groupId).catch(() => {});
 
@@ -129,6 +148,17 @@ membersRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req
 });
 
 membersRouter.patch("/:memberId", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
+  const ownerAdminId = getTenantOwnerId(req);
+  const current = await prisma.member.findFirst({
+    where: {
+      id: req.params.memberId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!current) {
+    return res.status(404).json({ message: "Member not found" });
+  }
+
   const payload = req.body || {};
   const data = {
     displayName: typeof payload.displayName === "string" ? payload.displayName : undefined,
@@ -138,21 +168,21 @@ membersRouter.patch("/:memberId", requireAuth, requireRole("ADMIN", "MANAGER"), 
   };
 
   const item = await prisma.member.update({
-    where: { id: req.params.memberId },
+    where: { id: current.id },
     data
   });
 
   await logOperation({
     adminUserId: req.user.sub,
+    ownerAdminId: ownerAdminId || null,
     groupId: item.groupId,
     memberId: item.id,
     eventType: "MEMBER_UPDATED",
     title: "更新成員",
-    detail: `已更新成員 ${item.userId}`
-  });
+    detail: `更新會員 ${item.userId}`
+  }).catch(() => {});
 
   await rebuildRankingsForGroup(item.groupId).catch(() => {});
 
   res.json({ item });
 });
-

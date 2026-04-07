@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { apiFetch, clearToken, getUser } from "../lib/api";
 
@@ -10,35 +10,42 @@ export function Shell({ children, title, subtitle }) {
   const pathname = usePathname();
   const router = useRouter();
   const user = getUser();
-  const isAdmin = user?.role === "ADMIN";
-  const isManager = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const role = user?.role;
+  const isSuperAdmin = role === "SUPER_ADMIN";
+  const isAdminLike = role === "ADMIN" || role === "SUPER_ADMIN";
+  const isManagerLike = isAdminLike || role === "MANAGER";
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const navItems = [
-    { href: "/dashboard", label: "儀表板" },
-    { href: "/groups", label: "群組設定", show: isManager },
-    { href: "/members", label: "成員管理", show: isManager },
-    { href: "/violations", label: "違規紀錄" },
-    { href: "/lists", label: "黑白名單" },
-    { href: "/rules", label: "規則設定", show: isManager },
-    { href: "/welcome", label: "歡迎群規", show: isManager },
-    { href: "/announcements", label: "定時公告", show: isManager },
-    { href: "/auto-replies", label: "自動回覆", show: isManager },
-    { href: "/checkins", label: "簽到", show: isManager },
-    { href: "/missions", label: "任務", show: isManager },
-    { href: "/lotteries", label: "抽獎", show: isManager },
-    { href: "/rankings", label: "排行榜" },
-    { href: "/notifications", label: "通知中心" },
-    { href: "/operation-logs", label: "操作日誌", show: isManager },
-    { href: "/loan-cases", label: "貸款案件", show: isManager },
-    { href: "/daily-reports", label: "每日匯報", show: isManager },
-    { href: "/reports", label: "統計報表", show: isManager },
-    { href: "/reminder-center", label: "提醒中心", show: isManager },
-    { href: "/ai", label: "AI 判斷" },
-    { href: "/telegram", label: "Telegram 設定", show: isAdmin },
-    { href: "/admins", label: "管理員", show: isAdmin },
-    { href: "/more-programs", label: "更多程式", show: isAdmin }
-  ].filter((item) => item.show !== false);
+  const navItems = useMemo(() => {
+    const items = [
+      { href: "/dashboard", label: "儀表板" },
+      { href: "/groups", label: "群組管理", show: isManagerLike },
+      { href: "/members", label: "成員管理", show: isManagerLike },
+      { href: "/violations", label: "違規紀錄" },
+      { href: "/lists", label: "黑白名單" },
+      { href: "/ai", label: "AI 判斷" },
+      { href: "/notifications", label: "通知中心" },
+      { href: "/operation-logs", label: "操作日誌", show: isManagerLike },
+      { href: "/loan-cases", label: "貸款案件", show: isManagerLike },
+      { href: "/daily-reports", label: "每日匯報", show: isManagerLike },
+      { href: "/reports", label: "統計報表", show: isManagerLike },
+      { href: "/reminder-center", label: "提醒中心", show: isManagerLike },
+      { href: "/welcome", label: "新人歡迎", show: isManagerLike },
+      { href: "/announcements", label: "定時公告", show: isManagerLike },
+      { href: "/auto-replies", label: "關鍵字回覆", show: isManagerLike },
+      { href: "/checkins", label: "簽到", show: isManagerLike },
+      { href: "/missions", label: "任務", show: isManagerLike },
+      { href: "/lotteries", label: "抽獎", show: isManagerLike },
+      { href: "/rankings", label: "排行榜", show: isManagerLike },
+      { href: "/telegram", label: "Telegram", show: isAdminLike },
+      { href: "/line-configs", label: "LINE 綁定", show: isAdminLike },
+      { href: "/admins", label: "管理員", show: isSuperAdmin },
+      { href: "/super-admin", label: "超級系統", show: isSuperAdmin },
+      { href: "/more-programs", label: "更多程式", show: isSuperAdmin }
+    ];
+
+    return items.filter((item) => item.show !== false);
+  }, [isAdminLike, isManagerLike, isSuperAdmin]);
 
   useEffect(() => {
     apiFetch("/notifications/unread-count")

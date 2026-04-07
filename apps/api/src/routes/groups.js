@@ -3,12 +3,13 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
+import { getTenantOwnerId } from "../middleware/tenant.js";
 import { parseBody } from "../lib/validation.js";
 import { ensureGroupSettings, logOperation } from "../services/activity.js";
 
 export const groupsRouter = express.Router();
 
-const DEFAULT_WARNING_MESSAGE = "請注意群組規範，若持續違規系統會自動升級處理。";
+const DEFAULT_WARNING_MESSAGE = "請遵守群組規範，若有違規將依規則處理。";
 
 const createGroupSchema = z.object({
   lineGroupId: z.string().min(1),
@@ -54,23 +55,23 @@ const settingsSchema = z.object({
 });
 
 groupsRouter.get("/", requireAuth, async (req, res) => {
+  const ownerAdminId = getTenantOwnerId(req);
+  const where = ownerAdminId ? { ownerAdminId } : {};
   const groups = await prisma.group.findMany({
+    where,
     orderBy: { updatedAt: "desc" },
     include: {
       ruleSetting: true,
       groupSetting: true,
-      pendingActions: {
-        orderBy: { createdAt: "desc" },
-        take: 1
-      },
+      pendingActions: { orderBy: { createdAt: "desc" }, take: 1 },
       _count: {
         select: {
           violations: true,
           messages: true,
           pendingActions: true,
           members: true,
-            notifications: true,
-            loanCases: true
+          notifications: true,
+          loanCases: true
         }
       }
     }
@@ -83,6 +84,7 @@ groupsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req,
   const payload = parseBody(createGroupSchema, req, res);
   if (!payload) return;
 
+  const ownerAdminId = req.user.sub;
   const existing = await prisma.group.findUnique({
     where: { lineGroupId: payload.lineGroupId }
   });
@@ -95,19 +97,24 @@ groupsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req,
       lineGroupId: payload.lineGroupId,
       name: payload.name || null,
       isActive: payload.isActive ?? true,
+      ownerAdminId,
       ruleSetting: {
         create: {
+          ownerAdminId,
           warningMessage: DEFAULT_WARNING_MESSAGE
         }
       },
       groupSetting: {
-        create: {}
+        create: {
+          ownerAdminId
+        }
       },
       welcomeSetting: {
         create: {
+          ownerAdminId,
           enabled: false,
           welcomeMessage: "歡迎加入群組，請先閱讀群規。",
-          groupRulesMessage: "請遵守群組規範，避免洗版、廣告與違規連結。"
+          groupRulesMessage: "請遵守群組規範，勿發送違規內容。"
         }
       }
     },
@@ -120,18 +127,23 @@ groupsRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async (req,
 
   await logOperation({
     adminUserId: req.user.sub,
+    ownerAdminId: ownerAdminId || null,
     groupId: group.id,
     eventType: "GROUP_SETTING_CHANGED",
-    title: "建立群組",
+    title: "新增群組",
     detail: payload.lineGroupId
-  });
+  }).catch(() => {});
 
   res.status(201).json({ group });
 });
 
 groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
-  const group = await prisma.group.findUnique({
-    where: { id: req.params.groupId },
+  const ownerAdminId = getTenantOwnerId(req);
+  const group = await prisma.group.findFirst({
+    where: {
+      id: req.params.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    },
     include: {
       ruleSetting: true,
       groupSetting: true,
@@ -139,10 +151,7 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
       members: { orderBy: { updatedAt: "desc" }, take: 5 },
       announcements: { orderBy: { updatedAt: "desc" }, take: 5 },
       autoReplyRules: { orderBy: { updatedAt: "desc" }, take: 5 },
-      pendingActions: {
-        orderBy: { createdAt: "desc" },
-        take: 1
-      },
+      pendingActions: { orderBy: { createdAt: "desc" }, take: 1 },
       notifications: { orderBy: { createdAt: "desc" }, take: 10 },
       loanCases: { orderBy: { updatedAt: "desc" }, take: 10 },
       operationLogs: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -155,9 +164,9 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
           notifications: true,
           announcements: true,
           autoReplyRules: true,
-            missions: true,
-            lotteries: true,
-            loanCases: true
+          missions: true,
+          lotteries: true,
+          loanCases: true
         }
       }
     }
@@ -174,49 +183,84 @@ groupsRouter.patch("/:groupId", requireAuth, requireRole("ADMIN", "MANAGER"), as
   const payload = parseBody(updateGroupSchema, req, res);
   if (!payload) return;
 
-  const data = {};
-  if (typeof payload.lineGroupId === "string") data.lineGroupId = payload.lineGroupId;
-  if (typeof payload.name === "string") data.name = payload.name;
-  if (typeof payload.isActive === "boolean") data.isActive = payload.isActive;
+  const ownerAdminId = getTenantOwnerId(req);
+  const current = await prisma.group.findFirst({
+    where: {
+      id: req.params.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!current) {
+    return res.status(404).json({ message: "Group not found" });
+  }
 
-  if (data.lineGroupId) {
+  if (typeof payload.lineGroupId === "string") {
     const existing = await prisma.group.findUnique({
-      where: { lineGroupId: data.lineGroupId }
+      where: { lineGroupId: payload.lineGroupId }
     });
     if (existing && existing.id !== req.params.groupId) {
-      return res.status(409).json({ message: "這個 LINE Group ID 已經被其他群組使用。" });
+      return res.status(409).json({ message: "這個 LINE Group ID 已被其他群組使用。" });
     }
   }
 
   const group = await prisma.group.update({
     where: { id: req.params.groupId },
-    data
+    data: {
+      ...(typeof payload.lineGroupId === "string" ? { lineGroupId: payload.lineGroupId } : {}),
+      ...(typeof payload.name === "string" ? { name: payload.name } : {}),
+      ...(typeof payload.isActive === "boolean" ? { isActive: payload.isActive } : {})
+    }
   });
 
   await logOperation({
     adminUserId: req.user.sub,
+    ownerAdminId: ownerAdminId || null,
     groupId: group.id,
     eventType: "GROUP_SETTING_CHANGED",
     title: "更新群組",
     detail: group.name || group.lineGroupId
-  });
+  }).catch(() => {});
 
   res.json({ group });
 });
 
 groupsRouter.delete("/:groupId", requireAuth, requireRole("ADMIN"), async (req, res) => {
-  await prisma.group.delete({ where: { id: req.params.groupId } });
+  const ownerAdminId = getTenantOwnerId(req);
+  const current = await prisma.group.findFirst({
+    where: {
+      id: req.params.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!current) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
+  await prisma.group.delete({ where: { id: current.id } });
   await logOperation({
     adminUserId: req.user.sub,
+    ownerAdminId: ownerAdminId || null,
     groupId: req.params.groupId,
     eventType: "GROUP_SETTING_CHANGED",
     title: "刪除群組",
     detail: req.params.groupId
-  });
+  }).catch(() => {});
+
   res.json({ ok: true });
 });
 
 groupsRouter.get("/:groupId/rules", requireAuth, async (req, res) => {
+  const ownerAdminId = getTenantOwnerId(req);
+  const group = await prisma.group.findFirst({
+    where: {
+      id: req.params.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!group) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
   const rule = await prisma.ruleSetting.findUnique({
     where: { groupId: req.params.groupId }
   });
@@ -225,6 +269,17 @@ groupsRouter.get("/:groupId/rules", requireAuth, async (req, res) => {
 
 groupsRouter.put("/:groupId/rules", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
   const payload = req.body || {};
+  const ownerAdminId = getTenantOwnerId(req);
+  const currentGroup = await prisma.group.findFirst({
+    where: {
+      id: req.params.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!currentGroup) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
   const current = await prisma.ruleSetting.findUnique({
     where: { groupId: req.params.groupId }
   });
@@ -251,6 +306,7 @@ groupsRouter.put("/:groupId/rules", requireAuth, requireRole("ADMIN", "MANAGER")
     },
     create: {
       groupId: req.params.groupId,
+      ownerAdminId,
       protectUrl: payload.protectUrl ?? true,
       protectInvite: payload.protectInvite ?? true,
       blacklistWords: Array.isArray(payload.blacklistWords) ? payload.blacklistWords : [],
@@ -270,16 +326,28 @@ groupsRouter.put("/:groupId/rules", requireAuth, requireRole("ADMIN", "MANAGER")
 
   await logOperation({
     adminUserId: req.user.sub,
+    ownerAdminId: ownerAdminId || null,
     groupId: req.params.groupId,
     eventType: "GROUP_SETTING_CHANGED",
     title: "更新規則",
-    detail: "已更新規則設定"
-  });
+    detail: "已更新群組規則"
+  }).catch(() => {});
 
   res.json({ rule });
 });
 
 groupsRouter.get("/:groupId/settings", requireAuth, async (req, res) => {
+  const ownerAdminId = getTenantOwnerId(req);
+  const group = await prisma.group.findFirst({
+    where: {
+      id: req.params.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!group) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
   const { groupSetting, welcomeSetting } = await ensureGroupSettings(req.params.groupId);
   res.json({ groupSetting, welcomeSetting });
 });
@@ -287,6 +355,17 @@ groupsRouter.get("/:groupId/settings", requireAuth, async (req, res) => {
 groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGER"), async (req, res) => {
   const payload = parseBody(settingsSchema, req, res);
   if (!payload) return;
+
+  const ownerAdminId = getTenantOwnerId(req);
+  const group = await prisma.group.findFirst({
+    where: {
+      id: req.params.groupId,
+      ...(ownerAdminId ? { ownerAdminId } : {})
+    }
+  });
+  if (!group) {
+    return res.status(404).json({ message: "Group not found" });
+  }
 
   const currentSetting = await prisma.groupSetting.upsert({
     where: { groupId: req.params.groupId },
@@ -310,6 +389,7 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
     },
     create: {
       groupId: req.params.groupId,
+      ownerAdminId,
       autoEnforcement: payload.autoEnforcement ?? true,
       aiEnabled: payload.aiEnabled ?? true,
       blacklistFilteringEnabled: payload.blacklistFilteringEnabled ?? true,
@@ -349,6 +429,7 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
     },
     create: {
       groupId: req.params.groupId,
+      ownerAdminId,
       protectUrl: payload.protectUrl ?? true,
       protectInvite: payload.protectInvite ?? true,
       blacklistWords: payload.blacklistWords ?? [],
@@ -368,11 +449,12 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
 
   await logOperation({
     adminUserId: req.user.sub,
+    ownerAdminId: ownerAdminId || null,
     groupId: req.params.groupId,
     eventType: "GROUP_SETTING_CHANGED",
     title: "更新群組設定",
-    detail: "已更新群組功能開關與門檻"
-  });
+    detail: "已更新群組與規則設定"
+  }).catch(() => {});
 
   res.json({ groupSetting: currentSetting, ruleSetting });
 });

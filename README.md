@@ -299,6 +299,43 @@ The project now extends the existing LINE Group Manager architecture with the fo
 - `LotteryWinner`
 - `Ranking`
 
+## Super Admin / Multi-tenant Layer
+
+- `AdminUser` now supports `SUPER_ADMIN`, `ADMIN`, `MANAGER`, and `VIEWER`
+- Account status and plan type are tracked with `ACTIVE`, `EXPIRED`, `BLOCKED`, `PERMANENT`, and `EXPIRING`
+- Tenant-owned data uses `ownerAdminId` for isolation
+- Admin login logs, activity logs, notifications, and LINE configs are persisted
+- LINE Developers configs are encrypted at rest and masked in the UI
+- The webhook can be addressed by config ID and webhook token for tenant-specific routing
+
+## New Super Admin Routes
+
+- `GET /api/admins`
+- `POST /api/admins`
+- `PATCH /api/admins/:adminId`
+- `POST /api/admins/:adminId/renew`
+- `DELETE /api/admins/:adminId`
+- `GET /api/admins/login-logs`
+- `GET /api/admins/activity-logs`
+- `GET /api/admins/notifications`
+- `POST /api/admins/notifications/:notificationId/read`
+- `GET /api/line-configs`
+- `POST /api/line-configs`
+- `PATCH /api/line-configs/:configId`
+- `DELETE /api/line-configs/:configId`
+- `POST /api/line-configs/:configId/test`
+- `POST /api/webhooks/line`
+- `POST /api/line/webhook/:configId/:webhookToken`
+- `POST /api/webhooks/webhook/:configId/:webhookToken`
+
+## New Frontend Pages
+
+- `/super-admin`
+- `/line-configs`
+- `/admins`
+- `/notifications`
+- existing `/dashboard`, `/violations`, `/lists`, `/ai` remain in place and are tenant-aware
+
 ## Migration / Sync
 
 To sync the schema locally:

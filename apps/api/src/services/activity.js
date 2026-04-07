@@ -1,7 +1,20 @@
 import { prisma } from "../config/prisma.js";
 
+async function getGroupOwnerAdminId(groupOrGroupId) {
+  if (!groupOrGroupId) return null;
+  if (typeof groupOrGroupId === "object" && "ownerAdminId" in groupOrGroupId) {
+    return groupOrGroupId.ownerAdminId || null;
+  }
+  const group = await prisma.group.findUnique({
+    where: { id: String(groupOrGroupId) },
+    select: { ownerAdminId: true }
+  });
+  return group?.ownerAdminId || null;
+}
+
 export async function ensureMember({ group, lineUserId, displayName }) {
   if (!group || !lineUserId) return null;
+  const ownerAdminId = await getGroupOwnerAdminId(group);
 
   const member = await prisma.member.upsert({
     where: {
@@ -16,6 +29,7 @@ export async function ensureMember({ group, lineUserId, displayName }) {
     },
     create: {
       groupId: group.id,
+      ownerAdminId,
       userId: lineUserId,
       displayName: displayName || null,
       lastMessageAt: new Date()
@@ -27,6 +41,7 @@ export async function ensureMember({ group, lineUserId, displayName }) {
     update: {},
     create: {
       groupId: group.id,
+      ownerAdminId,
       memberId: member.id
     }
   });
@@ -43,19 +58,25 @@ export async function updateMemberActivity(memberId, patch = {}) {
 }
 
 export async function ensureGroupSettings(groupId) {
+  const ownerAdminId = await getGroupOwnerAdminId(groupId);
+
   const [groupSetting, welcomeSetting] = await Promise.all([
     prisma.groupSetting.upsert({
       where: { groupId },
       update: {},
-      create: { groupId }
+      create: {
+        groupId,
+        ownerAdminId
+      }
     }),
     prisma.welcomeSetting.upsert({
       where: { groupId },
       update: {},
       create: {
         groupId,
+        ownerAdminId,
         welcomeMessage: "歡迎加入群組，請先閱讀群規。",
-        groupRulesMessage: "請遵守群組規範，避免洗版、廣告與違規連結。"
+        groupRulesMessage: "請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"
       }
     })
   ]);
@@ -65,6 +86,7 @@ export async function ensureGroupSettings(groupId) {
 
 export async function logOperation({
   adminUserId = null,
+  ownerAdminId = null,
   groupId = null,
   memberId = null,
   eventType,
@@ -72,8 +94,12 @@ export async function logOperation({
   detail = null,
   meta = null
 }) {
+  if (!ownerAdminId && groupId) {
+    ownerAdminId = await getGroupOwnerAdminId(groupId);
+  }
   return prisma.operationLog.create({
     data: {
+      ownerAdminId,
       adminUserId,
       groupId,
       memberId,
@@ -86,6 +112,7 @@ export async function logOperation({
 }
 
 export async function createNotification({
+  ownerAdminId = null,
   groupId = null,
   memberId = null,
   type,
@@ -93,8 +120,12 @@ export async function createNotification({
   content,
   meta = null
 }) {
+  if (!ownerAdminId && groupId) {
+    ownerAdminId = await getGroupOwnerAdminId(groupId);
+  }
   return prisma.notification.create({
     data: {
+      ownerAdminId,
       groupId,
       memberId,
       type,
@@ -120,6 +151,8 @@ export async function markAllNotificationsRead() {
 }
 
 export async function rebuildRankingsForGroup(groupId) {
+  const ownerAdminId = await getGroupOwnerAdminId(groupId);
+
   const members = await prisma.member.findMany({
     where: { groupId },
     orderBy: [{ activeScore: "desc" }, { updatedAt: "desc" }]
@@ -154,6 +187,7 @@ export async function rebuildRankingsForGroup(groupId) {
         },
         create: {
           groupId,
+          ownerAdminId,
           memberId: member.id,
           period,
           periodKey,
@@ -187,13 +221,27 @@ export function formatPeriodKey(date, period) {
 }
 
 export async function ensureWelcomeForGroup(groupId) {
+  const ownerAdminId = await getGroupOwnerAdminId(groupId);
   return prisma.welcomeSetting.upsert({
     where: { groupId },
     update: {},
     create: {
       groupId,
+      ownerAdminId,
       welcomeMessage: "歡迎加入群組，請先閱讀群規。",
-      groupRulesMessage: "請遵守群組規範，避免洗版、廣告與違規連結。"
+      groupRulesMessage: "請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"
     }
   });
+}
+
+export async function touchGroupOwner(groupId, ownerAdminId) {
+  if (!groupId || !ownerAdminId) return;
+  await prisma.group.update({
+    where: { id: groupId },
+    data: { ownerAdminId }
+  }).catch(() => {});
+}
+
+export async function getGroupOwner(groupId) {
+  return getGroupOwnerAdminId(groupId);
 }

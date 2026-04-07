@@ -43,5 +43,9 @@ export const env = {
   loanAutomationIntervalSeconds: Number(process.env.LOAN_AUTOMATION_INTERVAL_SECONDS || 60),
   defaultAdminEmail: process.env.DEFAULT_ADMIN_EMAIL || "admin@example.com",
   defaultAdminPassword: process.env.DEFAULT_ADMIN_PASSWORD || "Admin12345!",
-  defaultAdminName: process.env.DEFAULT_ADMIN_NAME || "System Admin"
+  defaultAdminName: process.env.DEFAULT_ADMIN_NAME || "System Admin",
+  defaultSuperAdminEmail: process.env.DEFAULT_SUPER_ADMIN_EMAIL || "superadmin@example.com",
+  defaultSuperAdminPassword: process.env.DEFAULT_SUPER_ADMIN_PASSWORD || "SuperAdmin12345!",
+  defaultSuperAdminName: process.env.DEFAULT_SUPER_ADMIN_NAME || "Super Admin",
+  lineConfigEncryptionKey: process.env.LINE_CONFIG_ENCRYPTION_KEY || process.env.JWT_SECRET || "change-me"
 };
