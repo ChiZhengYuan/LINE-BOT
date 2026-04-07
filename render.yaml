@@ -50,4 +50,4 @@ services:
     startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
-        sync: false
+        value: https://line-group-manager-api.onrender.com/api

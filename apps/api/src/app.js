@@ -16,6 +16,15 @@ export function createApp() {
   app.use(helmet());
   app.use(cors({ origin: true, credentials: true }));
 
+  app.get("/", (req, res) => {
+    res.json({
+      ok: true,
+      service: "line-group-manager-api",
+      health: "/health",
+      webhook: "/api/webhooks/line"
+    });
+  });
+
   app.get("/health", (req, res) => {
     res.json({ ok: true, service: "line-group-manager-api" });
   });
