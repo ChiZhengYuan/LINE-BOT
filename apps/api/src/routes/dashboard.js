@@ -25,6 +25,10 @@ dashboardRouter.get("/groups", requireAuth, async (req, res) => {
     orderBy: { updatedAt: "desc" },
     include: {
       ruleSetting: true,
+      pendingActions: {
+        orderBy: { createdAt: "desc" },
+        take: 1
+      },
       _count: {
         select: {
           violations: true,
