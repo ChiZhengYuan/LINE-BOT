@@ -8,12 +8,13 @@ import { Shell } from "../../components/Shell";
 export default function AdminsPage() {
   const router = useRouter();
   const user = getUser();
-  const canWrite = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  const canWrite = user?.role === "SUPER_ADMIN";
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
+    username: "",
     email: "",
     name: "",
     password: "",
@@ -46,7 +47,7 @@ export default function AdminsPage() {
         method: "POST",
         body: JSON.stringify(form)
       });
-      setForm({ email: "", name: "", password: "", role: "VIEWER" });
+      setForm({ username: "", email: "", name: "", password: "", role: "VIEWER" });
       await load();
     } catch (err) {
       setError(err.message || "新增管理員失敗");
@@ -99,8 +100,13 @@ export default function AdminsPage() {
         <h2 className="text-xl font-semibold text-slate-50">新增管理員</h2>
         <form onSubmit={createAdmin} className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Field
-            label="Email"
-            type="email"
+            label="帳號"
+            value={form.username}
+            onChange={(value) => setForm({ ...form, username: value })}
+            disabled={!canWrite}
+          />
+          <Field
+            label="Email（選填）"
             value={form.email}
             onChange={(value) => setForm({ ...form, email: value })}
             disabled={!canWrite}
@@ -167,7 +173,8 @@ export default function AdminsPage() {
 
 function AdminCard({ admin, canWrite, saving, onSave, onDelete }) {
   const [name, setName] = useState(admin.name || "");
-  const [email, setEmail] = useState(admin.email);
+  const [username, setUsername] = useState(admin.username || "");
+  const [email, setEmail] = useState(admin.email || "");
   const [role, setRole] = useState(admin.role);
   const [password, setPassword] = useState("");
 
@@ -175,11 +182,13 @@ function AdminCard({ admin, canWrite, saving, onSave, onDelete }) {
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="cyan">{role}</Badge>
-        <Badge tone="emerald">{admin.email}</Badge>
+        {username ? <Badge tone="emerald">{username}</Badge> : null}
+        {admin.email ? <Badge tone="emerald">{admin.email}</Badge> : <Badge tone="rose">未填 Email</Badge>}
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_1.2fr_0.8fr_1fr_auto] xl:items-end">
-        <Field label="Email" value={email} onChange={setEmail} disabled={!canWrite || saving} />
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_1.2fr_1.2fr_0.8fr_1fr_auto] xl:items-end">
+        <Field label="帳號" value={username} onChange={setUsername} disabled={!canWrite || saving} />
+        <Field label="Email（選填）" value={email} onChange={setEmail} disabled={!canWrite || saving} />
         <Field label="姓名" value={name} onChange={setName} disabled={!canWrite || saving} />
         <label className="block text-sm text-slate-300">
           權限
@@ -200,7 +209,7 @@ function AdminCard({ admin, canWrite, saving, onSave, onDelete }) {
             type="button"
             className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 disabled:opacity-50"
             disabled={!canWrite || saving}
-            onClick={() => onSave(admin.id, { email, name, role, ...(password ? { password } : {}) })}
+            onClick={() => onSave(admin.id, { username, email, name, role, ...(password ? { password } : {}) })}
           >
             儲存
           </button>

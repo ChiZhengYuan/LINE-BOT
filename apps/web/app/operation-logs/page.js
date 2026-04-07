@@ -126,7 +126,7 @@ export default function OperationLogsPage() {
             <option value="">{isSuperAdmin ? "全部" : "目前帳號"}</option>
             {admins.map((admin) => (
               <option key={admin.id} value={admin.id}>
-                {admin.name || admin.email}
+                {admin.name || admin.username || admin.email}
               </option>
             ))}
           </Select>

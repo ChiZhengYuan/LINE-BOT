@@ -7,7 +7,7 @@ import { apiFetch, setToken, setUser } from "../../lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@example.com");
+  const [account, setAccount] = useState("superadmin");
   const [password, setPassword] = useState("Admin12345!");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function LoginPage() {
     try {
       const result = await apiFetch("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ identifier: account, account, email: account, password })
       });
       setToken(result.token);
       setUser(result.user);
@@ -77,13 +77,14 @@ export default function LoginPage() {
             </p>
 
             <label className="mt-6 block text-sm text-slate-300">
-              Email
+              帳號 / Email
               <input
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                value={account}
+                onChange={(event) => setAccount(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none ring-0 focus:border-cyan-300/50"
-                type="email"
-                autoComplete="email"
+                type="text"
+                autoComplete="username"
+                placeholder="superadmin 或你的帳號"
               />
             </label>
 

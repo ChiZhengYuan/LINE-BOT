@@ -72,7 +72,14 @@ export default function SuperAdminPage() {
               {admins.map((admin) => (
                 <div key={admin.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-cyan-400/15 px-3 py-1 text-xs text-cyan-100">{admin.email}</span>
+                    {admin.username ? (
+                      <span className="rounded-full bg-cyan-400/15 px-3 py-1 text-xs text-cyan-100">{admin.username}</span>
+                    ) : null}
+                    {admin.email ? (
+                      <span className="rounded-full bg-cyan-400/15 px-3 py-1 text-xs text-cyan-100">{admin.email}</span>
+                    ) : (
+                      <span className="rounded-full bg-slate-400/15 px-3 py-1 text-xs text-slate-200">未填 Email</span>
+                    )}
                     <span className={`rounded-full px-3 py-1 text-xs ${badgeClass(admin.status)}`}>{admin.status}</span>
                     <span className={`rounded-full px-3 py-1 text-xs ${badgeClass(admin.role === "SUPER_ADMIN" ? "SUPER" : admin.role)}`}>{admin.role}</span>
                     <span className={`rounded-full px-3 py-1 text-xs ${admin.planType === "PERMANENT" ? "bg-emerald-400/15 text-emerald-100" : "bg-amber-400/15 text-amber-100"}`}>

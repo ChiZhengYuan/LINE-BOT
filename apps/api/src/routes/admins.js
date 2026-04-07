@@ -12,6 +12,7 @@ adminsRouter.get("/", requireAuth, requireSuperAdmin, async (req, res) => {
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      username: true,
       email: true,
       name: true,
       role: true,
@@ -42,8 +43,13 @@ adminsRouter.get("/", requireAuth, requireSuperAdmin, async (req, res) => {
 
 adminsRouter.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
   const payload = req.body || {};
-  if (!payload.email || !payload.password) {
-    return res.status(400).json({ message: "email and password are required" });
+  const username = normalizeIdentifier(payload.username || payload.account || payload.identifier);
+  const email = normalizeOptionalIdentifier(payload.email);
+  if (!username && !email) {
+    return res.status(400).json({ message: "帳號或 Email 至少要填一個" });
+  }
+  if (!payload.password) {
+    return res.status(400).json({ message: "password is required" });
   }
 
   const role = payload.role || "ADMIN";
@@ -52,7 +58,8 @@ adminsRouter.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
 
   const admin = await prisma.adminUser.create({
     data: {
-      email: String(payload.email).trim().toLowerCase(),
+      email,
+      username: username || null,
       name: payload.name || null,
       role,
       status: payload.status || "ACTIVE",
@@ -72,7 +79,7 @@ adminsRouter.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
     ownerAdminId: admin.id,
     eventType: "GROUP_SETTING_CHANGED",
     title: "建立管理員",
-    detail: admin.email
+    detail: admin.username || admin.email || admin.id
   }).catch(() => {});
 
   res.status(201).json({
@@ -84,7 +91,13 @@ adminsRouter.patch("/:adminId", requireAuth, requireSuperAdmin, async (req, res)
   const payload = req.body || {};
   const data = {};
 
-  if (payload.email !== undefined) data.email = String(payload.email).trim().toLowerCase();
+  if (payload.email !== undefined) data.email = normalizeOptionalIdentifier(payload.email);
+  if (payload.username !== undefined || payload.account !== undefined || payload.identifier !== undefined) {
+    data.username = normalizeOptionalIdentifier(payload.username || payload.account || payload.identifier);
+  }
+  if (data.email === null && data.username === null) {
+    return res.status(400).json({ message: "帳號或 Email 至少要保留一個" });
+  }
   if (payload.name !== undefined) data.name = payload.name;
   if (payload.role !== undefined) data.role = payload.role;
   if (payload.status !== undefined) data.status = payload.status;
@@ -111,7 +124,7 @@ adminsRouter.patch("/:adminId", requireAuth, requireSuperAdmin, async (req, res)
     ownerAdminId: admin.id,
     eventType: "GROUP_SETTING_CHANGED",
     title: "更新管理員",
-    detail: admin.email
+    detail: admin.username || admin.email || admin.id
   }).catch(() => {});
 
   res.json({
@@ -183,6 +196,7 @@ adminsRouter.post("/notifications/:notificationId/read", requireAuth, requireSup
 function sanitizeAdmin(admin) {
   return {
     id: admin.id,
+    username: admin.username,
     email: admin.email,
     name: admin.name,
     role: admin.role,
@@ -196,4 +210,17 @@ function sanitizeAdmin(admin) {
     createdAt: admin.createdAt,
     updatedAt: admin.updatedAt
   };
+}
+
+function normalizeIdentifier(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim().toLowerCase();
+  return text || null;
+}
+
+function normalizeOptionalIdentifier(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const text = String(value).trim().toLowerCase();
+  return text || null;
 }

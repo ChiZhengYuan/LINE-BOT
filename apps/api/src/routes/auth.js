@@ -9,17 +9,25 @@ import { logOperation } from "../services/activity.js";
 export const authRouter = express.Router();
 
 authRouter.post("/login", async (req, res, next) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
+  const identifier = String(req.body?.identifier || req.body?.account || req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
   const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress || null;
   const userAgent = req.headers["user-agent"] || null;
 
   try {
-    const user = await prisma.adminUser.findUnique({ where: { email } });
+    if (!identifier) {
+      return res.status(400).json({ message: "請輸入帳號" });
+    }
+
+    const user = await prisma.adminUser.findFirst({
+      where: {
+        OR: [{ email: identifier }, { username: identifier }]
+      }
+    });
     if (!user) {
       await prisma.adminLoginLog.create({
         data: {
-          email,
+          email: identifier,
           success: false,
           reason: "USER_NOT_FOUND",
           ipAddress: stringifyHeader(ipAddress),
@@ -35,7 +43,7 @@ authRouter.post("/login", async (req, res, next) => {
         data: {
           ownerAdminId: user.ownerAdminId || user.id,
           adminUserId: user.id,
-          email: user.email,
+          email: identifier,
           success: false,
           reason: statusCheck.reason,
           ipAddress: stringifyHeader(ipAddress),
@@ -51,7 +59,7 @@ authRouter.post("/login", async (req, res, next) => {
         data: {
           ownerAdminId: user.ownerAdminId || user.id,
           adminUserId: user.id,
-          email: user.email,
+          email: identifier,
           success: false,
           reason: "INVALID_PASSWORD",
           ipAddress: stringifyHeader(ipAddress),
@@ -65,6 +73,7 @@ authRouter.post("/login", async (req, res, next) => {
       {
         sub: user.id,
         email: user.email,
+        username: user.username,
         name: user.name,
         role: user.role
       },
@@ -85,7 +94,7 @@ authRouter.post("/login", async (req, res, next) => {
       data: {
         ownerAdminId: user.ownerAdminId || user.id,
         adminUserId: user.id,
-        email: user.email,
+        email: identifier,
         success: true,
         reason: "OK",
         ipAddress: stringifyHeader(ipAddress),
@@ -98,7 +107,7 @@ authRouter.post("/login", async (req, res, next) => {
       ownerAdminId: user.ownerAdminId || user.id,
       eventType: "LOGIN",
       title: "管理員登入",
-      detail: `${user.email} 已登入`
+      detail: `${user.username || user.email || identifier} 已登入`
     }).catch(() => {});
 
     res.json({
@@ -106,6 +115,7 @@ authRouter.post("/login", async (req, res, next) => {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         name: user.name,
         role: user.role,
         status: user.status,
@@ -124,6 +134,7 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     select: {
       id: true,
       email: true,
+      username: true,
       name: true,
       role: true,
       status: true,

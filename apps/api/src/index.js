@@ -8,6 +8,7 @@ import { startLoanAutomationScheduler } from "./services/loanScheduler.js";
 async function ensureDefaultAccounts() {
   await ensureAdminAccount({
     email: env.defaultSuperAdminEmail,
+    username: env.defaultSuperAdminUsername,
     password: env.defaultSuperAdminPassword,
     name: env.defaultSuperAdminName,
     role: "SUPER_ADMIN",
@@ -16,6 +17,7 @@ async function ensureDefaultAccounts() {
 
   await ensureAdminAccount({
     email: env.defaultAdminEmail,
+    username: env.defaultAdminUsername,
     password: env.defaultAdminPassword,
     name: env.defaultAdminName,
     role: "ADMIN",
@@ -23,13 +25,19 @@ async function ensureDefaultAccounts() {
   });
 }
 
-async function ensureAdminAccount({ email, password, name, role, planType, expireAt = null }) {
-  const existing = await prisma.adminUser.findUnique({ where: { email } });
+async function ensureAdminAccount({ email, username, password, name, role, planType, expireAt = null }) {
+  const normalizedEmail = normalizeIdentifier(email);
+  const normalizedUsername = normalizeIdentifier(username);
+  const existing = await findExistingAdminAccount(normalizedEmail, normalizedUsername);
   if (existing) {
-    if (!existing.ownerAdminId) {
+    const updateData = {};
+    if (!existing.ownerAdminId) updateData.ownerAdminId = existing.id;
+    if (normalizedEmail && !existing.email) updateData.email = normalizedEmail;
+    if (normalizedUsername && !existing.username) updateData.username = normalizedUsername;
+    if (Object.keys(updateData).length) {
       await prisma.adminUser.update({
         where: { id: existing.id },
-        data: { ownerAdminId: existing.id }
+        data: updateData
       });
     }
     return existing;
@@ -38,7 +46,8 @@ async function ensureAdminAccount({ email, password, name, role, planType, expir
   const passwordHash = await bcrypt.hash(password, 12);
   const admin = await prisma.adminUser.create({
     data: {
-      email,
+      email: normalizedEmail || null,
+      username: normalizedUsername || null,
       passwordHash,
       name,
       role,
@@ -54,6 +63,26 @@ async function ensureAdminAccount({ email, password, name, role, planType, expir
   });
 
   return admin;
+}
+
+async function findExistingAdminAccount(email, username) {
+  if (email) {
+    const existing = await prisma.adminUser.findUnique({ where: { email } });
+    if (existing) return existing;
+  }
+
+  if (username) {
+    const existing = await prisma.adminUser.findUnique({ where: { username } });
+    if (existing) return existing;
+  }
+
+  return null;
+}
+
+function normalizeIdentifier(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim().toLowerCase();
+  return text || null;
 }
 
 async function backfillOwnership() {
