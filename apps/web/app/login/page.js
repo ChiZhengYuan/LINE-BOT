@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, setToken, setUser } from "../../lib/api";
@@ -15,6 +16,7 @@ export default function LoginPage() {
     event.preventDefault();
     setLoading(true);
     setError("");
+
     try {
       const result = await apiFetch("/auth/login", {
         method: "POST",
@@ -35,19 +37,27 @@ export default function LoginPage() {
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 shadow-glow backdrop-blur">
-            <div className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">LINE GROUP MANAGER</div>
-            <h1 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight">
-              官方 LINE Messaging API 的群組管理後台
-            </h1>
-            <p className="mt-4 max-w-2xl text-slate-300">
-              先從 MVP 開始：Webhook、規則引擎、違規計分、AI 判斷與後台管理頁都已串接，適合本機驗證與後續上線。
+            <div className="flex items-center gap-4">
+              <Image
+                src="/brand-logo.png"
+                alt="LINE Group Manager logo"
+                width={64}
+                height={64}
+                className="h-16 w-16 rounded-3xl border border-white/10 bg-slate-950/70 object-contain p-2"
+                priority
+              />
+              <div>
+                <div className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">LINE GROUP MANAGER</div>
+                <h1 className="mt-2 text-4xl font-semibold leading-tight">LINE 群組管理後台</h1>
+              </div>
+            </div>
+
+            <p className="mt-6 max-w-2xl text-slate-300">
+              這是一套使用官方 LINE Messaging API 的群組管理系統，可接收 webhook、做規則偵測、違規記錄與後台管理。
             </p>
+
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {[
-                "Webhook 接收訊息",
-                "Redis 洗版偵測",
-                "JWT 登入後台"
-              ].map((item) => (
+              {["Webhook 接收", "規則引擎", "JWT 後台登入"].map((item) => (
                 <div key={item} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-200">
                   {item}
                 </div>
@@ -57,7 +67,7 @@ export default function LoginPage() {
 
           <form onSubmit={submit} className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 shadow-glow backdrop-blur">
             <h2 className="text-2xl font-semibold">登入</h2>
-            <p className="mt-2 text-sm text-slate-400">使用預設管理員帳號即可先進後台。</p>
+            <p className="mt-2 text-sm text-slate-400">請輸入管理員帳號與密碼</p>
 
             <label className="mt-6 block text-sm text-slate-300">
               Email
@@ -90,7 +100,7 @@ export default function LoginPage() {
             </button>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              預設帳密來自 `.env` 的 `DEFAULT_ADMIN_EMAIL` / `DEFAULT_ADMIN_PASSWORD`。
+              預設帳密請看 `.env` 裡的 `DEFAULT_ADMIN_EMAIL` / `DEFAULT_ADMIN_PASSWORD`
             </div>
           </form>
         </div>
