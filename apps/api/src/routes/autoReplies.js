@@ -86,9 +86,14 @@ autoRepliesRouter.post("/", requireAuth, requireRole("ADMIN", "MANAGER"), async 
 
   await prisma.groupSetting.upsert({
     where: { groupId: data.groupId },
-    update: { keywordAutoReplyEnabled: true },
+    update: {
+      keywordAutoReplyEnabled: true,
+      updatedAt: new Date()
+    },
     create: {
       groupId: data.groupId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       keywordAutoReplyEnabled: true
     }
   });
@@ -112,9 +117,14 @@ autoRepliesRouter.post("/groups/:groupId/enable", requireAuth, requireRole("ADMI
 
   const settings = await prisma.groupSetting.upsert({
     where: { groupId },
-    update: { keywordAutoReplyEnabled: true },
+    update: {
+      keywordAutoReplyEnabled: true,
+      updatedAt: new Date()
+    },
     create: {
       groupId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       keywordAutoReplyEnabled: true
     }
   });

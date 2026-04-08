@@ -63,11 +63,14 @@ export async function ensureGroupSettings(groupId) {
   await prisma.groupSetting.upsert({
     where: { groupId },
     update: {
-      ownerAdminId
+      ownerAdminId,
+      updatedAt: new Date()
     },
     create: {
       groupId,
       ownerAdminId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       autoEnforcement: true,
       aiEnabled: true,
       blacklistFilteringEnabled: true,
@@ -88,11 +91,14 @@ export async function ensureGroupSettings(groupId) {
   await prisma.welcomeSetting.upsert({
     where: { groupId },
     update: {
-      ownerAdminId
+      ownerAdminId,
+      updatedAt: new Date()
     },
     create: {
       groupId,
       ownerAdminId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       enabled: false,
       welcomeMessage: "歡迎加入群組，請先閱讀群規。",
       groupRulesMessage: "請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"
@@ -255,6 +261,8 @@ export async function ensureWelcomeForGroup(groupId) {
     create: {
       groupId,
       ownerAdminId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       welcomeMessage: "歡迎加入群組，請先閱讀群規。",
       groupRulesMessage: "請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"
     }

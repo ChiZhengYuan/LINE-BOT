@@ -376,6 +376,7 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
   const currentSetting = await prisma.groupSetting.upsert({
     where: { groupId: req.params.groupId },
     update: {
+      updatedAt: new Date(),
       autoEnforcement: payload.autoEnforcement ?? undefined,
       aiEnabled: payload.aiEnabled ?? undefined,
       blacklistFilteringEnabled: payload.blacklistFilteringEnabled ?? undefined,
@@ -401,6 +402,8 @@ groupsRouter.put("/:groupId/settings", requireAuth, requireRole("ADMIN", "MANAGE
     create: {
       groupId: req.params.groupId,
       ownerAdminId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       autoEnforcement: payload.autoEnforcement ?? true,
       aiEnabled: payload.aiEnabled ?? true,
       blacklistFilteringEnabled: payload.blacklistFilteringEnabled ?? true,
