@@ -5375,7 +5375,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
 
 
 
-        await handleMemberJoined(event, lineConfig?.ownerAdminId || null, lineAccessToken);
+        await handleMemberJoined(event, lineConfig?.ownerAdminId || null, lineAccessToken, lineConfig?.botId || null);
 
 
 
@@ -21759,7 +21759,7 @@ webhooksRouter.post(["/line", "/webhook/:configId/:webhookToken"], express.raw({
 
 
 
-async function handleMemberJoined(event, ownerAdminId = null, accessToken = null) {
+async function handleMemberJoined(event, ownerAdminId = null, accessToken = null, botUserId = null) {
 
 
 
@@ -22912,6 +22912,7 @@ async function handleMemberJoined(event, ownerAdminId = null, accessToken = null
 
 
     const lineUserId = joined.userId;
+    if (botUserId && lineUserId === botUserId) continue;
 
 
 
