@@ -84,7 +84,8 @@ export async function ensureGroupSettings(groupId) {
       "spamWindowSeconds",
       "spamMaxMessages",
       "pushToGroup",
-      "notifyAdmins"
+      "notifyAdmins",
+      "updatedAt"
     )
     VALUES (
       ${randomUUID()},
@@ -108,7 +109,8 @@ export async function ensureGroupSettings(groupId) {
       ${10},
       ${5},
       ${false},
-      ${true}
+      ${true},
+      ${new Date()}
     )
     ON CONFLICT ("groupId") DO UPDATE SET
       "ownerAdminId" = EXCLUDED."ownerAdminId",
@@ -123,6 +125,8 @@ export async function ensureGroupSettings(groupId) {
       "enabled",
       "welcomeMessage",
       "groupRulesMessage"
+      ,
+      "updatedAt"
     )
     VALUES (
       ${randomUUID()},
@@ -130,7 +134,8 @@ export async function ensureGroupSettings(groupId) {
       ${ownerAdminId},
       ${false},
       ${"歡迎加入群組，請先閱讀群規。"},
-      ${"請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"}
+      ${"請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"},
+      ${new Date()}
     )
     ON CONFLICT ("groupId") DO UPDATE SET
       "ownerAdminId" = EXCLUDED."ownerAdminId",

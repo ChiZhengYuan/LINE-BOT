@@ -77734,7 +77734,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         "spamWindowSeconds",
         "spamMaxMessages",
         "pushToGroup",
-        "notifyAdmins"
+        "notifyAdmins",
+        "updatedAt"
       )
       VALUES (
         ${randomUUID()},
@@ -77757,7 +77758,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         ${10},
         ${5},
         ${nextValue},
-        ${nextValue}
+        ${nextValue},
+        ${new Date()}
       )
       ON CONFLICT ("groupId") DO UPDATE SET
         "ownerAdminId" = EXCLUDED."ownerAdminId",
@@ -77868,7 +77870,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         "spamWindowSeconds",
         "spamMaxMessages",
         "pushToGroup",
-        "notifyAdmins"
+        "notifyAdmins",
+        "updatedAt"
       )
       VALUES (
         ${randomUUID()},
@@ -77891,7 +77894,8 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         ${10},
         ${5},
         ${toggleField === "pushToGroup" ? nextValue : false},
-        ${toggleField === "notifyAdmins" ? nextValue : false}
+        ${toggleField === "notifyAdmins" ? nextValue : false},
+        ${new Date()}
       )
       ON CONFLICT ("groupId") DO UPDATE SET
         "ownerAdminId" = EXCLUDED."ownerAdminId",
