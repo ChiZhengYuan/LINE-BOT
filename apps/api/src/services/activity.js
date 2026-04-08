@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { prisma } from "../config/prisma.js";
 
 async function getGroupOwnerAdminId(groupOrGroupId) {
@@ -61,86 +60,44 @@ export async function updateMemberActivity(memberId, patch = {}) {
 export async function ensureGroupSettings(groupId) {
   const ownerAdminId = await getGroupOwnerAdminId(groupId);
 
-  await prisma.$executeRaw`
-    INSERT INTO "GroupSetting" (
-      "id",
-      "groupId",
-      "ownerAdminId",
-      "autoEnforcement",
-      "aiEnabled",
-      "blacklistFilteringEnabled",
-      "spamDetectionEnabled",
-      "welcomeEnabled",
-      "announcementEnabled",
-      "dailyReportEnabled",
-      "dailyReportTime",
-      "keywordAutoReplyEnabled",
-      "lotteryEnabled",
-      "missionEnabled",
-      "checkinEnabled",
-      "rankingEnabled",
-      "protectionStatusTargetLineGroupId",
-      "violationThreshold",
-      "spamWindowSeconds",
-      "spamMaxMessages",
-      "pushToGroup",
-      "notifyAdmins",
-      "updatedAt"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${groupId},
-      ${ownerAdminId},
-      ${true},
-      ${true},
-      ${true},
-      ${true},
-      ${false},
-      ${false},
-      ${true},
-      ${"09:00"},
-      ${true},
-      ${false},
-      ${false},
-      ${false},
-      ${false},
-      ${null},
-      ${3},
-      ${10},
-      ${5},
-      ${false},
-      ${true},
-      ${new Date()}
-    )
-    ON CONFLICT ("groupId") DO UPDATE SET
-      "ownerAdminId" = EXCLUDED."ownerAdminId",
-      "updatedAt" = NOW();
-  `;
+  await prisma.groupSetting.upsert({
+    where: { groupId },
+    update: {
+      ownerAdminId
+    },
+    create: {
+      groupId,
+      ownerAdminId,
+      autoEnforcement: true,
+      aiEnabled: true,
+      blacklistFilteringEnabled: true,
+      spamDetectionEnabled: true,
+      welcomeEnabled: false,
+      announcementEnabled: false,
+      dailyReportEnabled: true,
+      dailyReportTime: "09:00",
+      protectionStatusTargetLineGroupId: null,
+      violationThreshold: 3,
+      spamWindowSeconds: 10,
+      spamMaxMessages: 5,
+      pushToGroup: false,
+      notifyAdmins: true
+    }
+  });
 
-  await prisma.$executeRaw`
-    INSERT INTO "WelcomeSetting" (
-      "id",
-      "groupId",
-      "ownerAdminId",
-      "enabled",
-      "welcomeMessage",
-      "groupRulesMessage"
-      ,
-      "updatedAt"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${groupId},
-      ${ownerAdminId},
-      ${false},
-      ${"歡迎加入群組，請先閱讀群規。"},
-      ${"請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"},
-      ${new Date()}
-    )
-    ON CONFLICT ("groupId") DO UPDATE SET
-      "ownerAdminId" = EXCLUDED."ownerAdminId",
-      "updatedAt" = NOW();
-  `;
+  await prisma.welcomeSetting.upsert({
+    where: { groupId },
+    update: {
+      ownerAdminId
+    },
+    create: {
+      groupId,
+      ownerAdminId,
+      enabled: false,
+      welcomeMessage: "歡迎加入群組，請先閱讀群規。",
+      groupRulesMessage: "請遵守群組規範，勿洗版、勿貼廣告、勿發送違規內容。"
+    }
+  });
 
   const [groupSetting, welcomeSetting] = await Promise.all([
     prisma.groupSetting.findUnique({ where: { groupId } }),

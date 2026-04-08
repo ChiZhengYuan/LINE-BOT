@@ -77712,73 +77712,49 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
 
 
   if (toggle.field === "__bulk__") {
-    await prisma.$executeRaw`
-      INSERT INTO "GroupSetting" (
-        "id",
-        "groupId",
-        "ownerAdminId",
-        "autoEnforcement",
-        "aiEnabled",
-        "blacklistFilteringEnabled",
-        "spamDetectionEnabled",
-        "welcomeEnabled",
-        "announcementEnabled",
-        "dailyReportEnabled",
-        "dailyReportTime",
-        "keywordAutoReplyEnabled",
-        "lotteryEnabled",
-        "missionEnabled",
-        "checkinEnabled",
-        "rankingEnabled",
-        "violationThreshold",
-        "spamWindowSeconds",
-        "spamMaxMessages",
-        "pushToGroup",
-        "notifyAdmins",
-        "updatedAt"
-      )
-      VALUES (
-        ${randomUUID()},
-        ${group.id},
-        ${group.ownerAdminId || null},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${"09:00"},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${nextValue},
-        ${3},
-        ${10},
-        ${5},
-        ${nextValue},
-        ${nextValue},
-        ${new Date()}
-      )
-      ON CONFLICT ("groupId") DO UPDATE SET
-        "ownerAdminId" = EXCLUDED."ownerAdminId",
-        "autoEnforcement" = EXCLUDED."autoEnforcement",
-        "aiEnabled" = EXCLUDED."aiEnabled",
-        "blacklistFilteringEnabled" = EXCLUDED."blacklistFilteringEnabled",
-        "spamDetectionEnabled" = EXCLUDED."spamDetectionEnabled",
-        "welcomeEnabled" = EXCLUDED."welcomeEnabled",
-        "announcementEnabled" = EXCLUDED."announcementEnabled",
-        "dailyReportEnabled" = EXCLUDED."dailyReportEnabled",
-        "keywordAutoReplyEnabled" = EXCLUDED."keywordAutoReplyEnabled",
-        "lotteryEnabled" = EXCLUDED."lotteryEnabled",
-        "missionEnabled" = EXCLUDED."missionEnabled",
-        "checkinEnabled" = EXCLUDED."checkinEnabled",
-        "rankingEnabled" = EXCLUDED."rankingEnabled",
-        "pushToGroup" = EXCLUDED."pushToGroup",
-        "notifyAdmins" = EXCLUDED."notifyAdmins",
-        "updatedAt" = NOW();
-    `;
+    await prisma.groupSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: nextValue,
+        aiEnabled: nextValue,
+        blacklistFilteringEnabled: nextValue,
+        spamDetectionEnabled: nextValue,
+        welcomeEnabled: nextValue,
+        announcementEnabled: nextValue,
+        dailyReportEnabled: nextValue,
+        keywordAutoReplyEnabled: nextValue,
+        lotteryEnabled: nextValue,
+        missionEnabled: nextValue,
+        checkinEnabled: nextValue,
+        rankingEnabled: nextValue,
+        pushToGroup: nextValue,
+        notifyAdmins: nextValue
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: nextValue,
+        aiEnabled: nextValue,
+        blacklistFilteringEnabled: nextValue,
+        spamDetectionEnabled: nextValue,
+        welcomeEnabled: nextValue,
+        announcementEnabled: nextValue,
+        dailyReportEnabled: nextValue,
+        dailyReportTime: "09:00",
+        protectionStatusTargetLineGroupId: null,
+        keywordAutoReplyEnabled: nextValue,
+        lotteryEnabled: nextValue,
+        missionEnabled: nextValue,
+        checkinEnabled: nextValue,
+        rankingEnabled: nextValue,
+        violationThreshold: 3,
+        spamWindowSeconds: 10,
+        spamMaxMessages: 5,
+        pushToGroup: nextValue,
+        notifyAdmins: nextValue
+      }
+    });
 
     await prisma.ruleSetting.upsert({
       where: { groupId: group.id },
@@ -77848,73 +77824,49 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
     return res.status(400).json({ ok: false, error: "不支援的群組設定欄位" });
     }
 
-    await prisma.$executeRaw`
-      INSERT INTO "GroupSetting" (
-        "id",
-        "groupId",
-        "ownerAdminId",
-        "autoEnforcement",
-        "aiEnabled",
-        "blacklistFilteringEnabled",
-        "spamDetectionEnabled",
-        "welcomeEnabled",
-        "announcementEnabled",
-        "dailyReportEnabled",
-        "dailyReportTime",
-        "keywordAutoReplyEnabled",
-        "lotteryEnabled",
-        "missionEnabled",
-        "checkinEnabled",
-        "rankingEnabled",
-        "violationThreshold",
-        "spamWindowSeconds",
-        "spamMaxMessages",
-        "pushToGroup",
-        "notifyAdmins",
-        "updatedAt"
-      )
-      VALUES (
-        ${randomUUID()},
-        ${group.id},
-        ${group.ownerAdminId || null},
-        ${toggleField === "autoEnforcement" ? nextValue : false},
-        ${toggleField === "aiEnabled" ? nextValue : false},
-        ${toggleField === "blacklistFilteringEnabled" ? nextValue : false},
-        ${toggleField === "spamDetectionEnabled" ? nextValue : false},
-        ${toggleField === "welcomeEnabled" ? nextValue : false},
-        ${toggleField === "announcementEnabled" ? nextValue : false},
-        ${toggleField === "dailyReportEnabled" ? nextValue : false},
-        ${"09:00"},
-        ${toggleField === "keywordAutoReplyEnabled" ? nextValue : false},
-        ${toggleField === "lotteryEnabled" ? nextValue : false},
-        ${toggleField === "missionEnabled" ? nextValue : false},
-        ${toggleField === "checkinEnabled" ? nextValue : false},
-        ${toggleField === "rankingEnabled" ? nextValue : false},
-        ${3},
-        ${10},
-        ${5},
-        ${toggleField === "pushToGroup" ? nextValue : false},
-        ${toggleField === "notifyAdmins" ? nextValue : false},
-        ${new Date()}
-      )
-      ON CONFLICT ("groupId") DO UPDATE SET
-        "ownerAdminId" = EXCLUDED."ownerAdminId",
-        "autoEnforcement" = CASE WHEN ${toggleField} = 'autoEnforcement' THEN EXCLUDED."autoEnforcement" ELSE "autoEnforcement" END,
-        "aiEnabled" = CASE WHEN ${toggleField} = 'aiEnabled' THEN EXCLUDED."aiEnabled" ELSE "aiEnabled" END,
-        "blacklistFilteringEnabled" = CASE WHEN ${toggleField} = 'blacklistFilteringEnabled' THEN EXCLUDED."blacklistFilteringEnabled" ELSE "blacklistFilteringEnabled" END,
-        "spamDetectionEnabled" = CASE WHEN ${toggleField} = 'spamDetectionEnabled' THEN EXCLUDED."spamDetectionEnabled" ELSE "spamDetectionEnabled" END,
-        "welcomeEnabled" = CASE WHEN ${toggleField} = 'welcomeEnabled' THEN EXCLUDED."welcomeEnabled" ELSE "welcomeEnabled" END,
-        "announcementEnabled" = CASE WHEN ${toggleField} = 'announcementEnabled' THEN EXCLUDED."announcementEnabled" ELSE "announcementEnabled" END,
-        "dailyReportEnabled" = CASE WHEN ${toggleField} = 'dailyReportEnabled' THEN EXCLUDED."dailyReportEnabled" ELSE "dailyReportEnabled" END,
-        "keywordAutoReplyEnabled" = CASE WHEN ${toggleField} = 'keywordAutoReplyEnabled' THEN EXCLUDED."keywordAutoReplyEnabled" ELSE "keywordAutoReplyEnabled" END,
-        "lotteryEnabled" = CASE WHEN ${toggleField} = 'lotteryEnabled' THEN EXCLUDED."lotteryEnabled" ELSE "lotteryEnabled" END,
-        "missionEnabled" = CASE WHEN ${toggleField} = 'missionEnabled' THEN EXCLUDED."missionEnabled" ELSE "missionEnabled" END,
-        "checkinEnabled" = CASE WHEN ${toggleField} = 'checkinEnabled' THEN EXCLUDED."checkinEnabled" ELSE "checkinEnabled" END,
-        "rankingEnabled" = CASE WHEN ${toggleField} = 'rankingEnabled' THEN EXCLUDED."rankingEnabled" ELSE "rankingEnabled" END,
-        "pushToGroup" = CASE WHEN ${toggleField} = 'pushToGroup' THEN EXCLUDED."pushToGroup" ELSE "pushToGroup" END,
-        "notifyAdmins" = CASE WHEN ${toggleField} = 'notifyAdmins' THEN EXCLUDED."notifyAdmins" ELSE "notifyAdmins" END,
-        "updatedAt" = NOW();
-    `;
+    await prisma.groupSetting.upsert({
+      where: { groupId: group.id },
+      update: {
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: toggleField === "autoEnforcement" ? nextValue : undefined,
+        aiEnabled: toggleField === "aiEnabled" ? nextValue : undefined,
+        blacklistFilteringEnabled: toggleField === "blacklistFilteringEnabled" ? nextValue : undefined,
+        spamDetectionEnabled: toggleField === "spamDetectionEnabled" ? nextValue : undefined,
+        welcomeEnabled: toggleField === "welcomeEnabled" ? nextValue : undefined,
+        announcementEnabled: toggleField === "announcementEnabled" ? nextValue : undefined,
+        dailyReportEnabled: toggleField === "dailyReportEnabled" ? nextValue : undefined,
+        keywordAutoReplyEnabled: toggleField === "keywordAutoReplyEnabled" ? nextValue : undefined,
+        lotteryEnabled: toggleField === "lotteryEnabled" ? nextValue : undefined,
+        missionEnabled: toggleField === "missionEnabled" ? nextValue : undefined,
+        checkinEnabled: toggleField === "checkinEnabled" ? nextValue : undefined,
+        rankingEnabled: toggleField === "rankingEnabled" ? nextValue : undefined,
+        pushToGroup: toggleField === "pushToGroup" ? nextValue : undefined,
+        notifyAdmins: toggleField === "notifyAdmins" ? nextValue : undefined
+      },
+      create: {
+        groupId: group.id,
+        ownerAdminId: group.ownerAdminId || null,
+        autoEnforcement: toggleField === "autoEnforcement" ? nextValue : false,
+        aiEnabled: toggleField === "aiEnabled" ? nextValue : false,
+        blacklistFilteringEnabled: toggleField === "blacklistFilteringEnabled" ? nextValue : false,
+        spamDetectionEnabled: toggleField === "spamDetectionEnabled" ? nextValue : false,
+        welcomeEnabled: toggleField === "welcomeEnabled" ? nextValue : false,
+        announcementEnabled: toggleField === "announcementEnabled" ? nextValue : false,
+        dailyReportEnabled: toggleField === "dailyReportEnabled" ? nextValue : false,
+        dailyReportTime: "09:00",
+        protectionStatusTargetLineGroupId: null,
+        keywordAutoReplyEnabled: toggleField === "keywordAutoReplyEnabled" ? nextValue : false,
+        lotteryEnabled: toggleField === "lotteryEnabled" ? nextValue : false,
+        missionEnabled: toggleField === "missionEnabled" ? nextValue : false,
+        checkinEnabled: toggleField === "checkinEnabled" ? nextValue : false,
+        rankingEnabled: toggleField === "rankingEnabled" ? nextValue : false,
+        violationThreshold: 3,
+        spamWindowSeconds: 10,
+        spamMaxMessages: 5,
+        pushToGroup: toggleField === "pushToGroup" ? nextValue : false,
+        notifyAdmins: toggleField === "notifyAdmins" ? nextValue : false
+      }
+    });
 
     const currentSetting = await prisma.groupSetting.findUnique({
       where: { groupId: group.id }
