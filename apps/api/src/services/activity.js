@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "../config/prisma.js";
 
 async function getGroupOwnerAdminId(groupOrGroupId) {
@@ -62,6 +63,7 @@ export async function ensureGroupSettings(groupId) {
 
   await prisma.$executeRaw`
     INSERT INTO "GroupSetting" (
+      "id",
       "groupId",
       "ownerAdminId",
       "autoEnforcement",
@@ -85,6 +87,7 @@ export async function ensureGroupSettings(groupId) {
       "notifyAdmins"
     )
     VALUES (
+      ${randomUUID()},
       ${groupId},
       ${ownerAdminId},
       ${true},
@@ -114,6 +117,7 @@ export async function ensureGroupSettings(groupId) {
 
   await prisma.$executeRaw`
     INSERT INTO "WelcomeSetting" (
+      "id",
       "groupId",
       "ownerAdminId",
       "enabled",
@@ -121,6 +125,7 @@ export async function ensureGroupSettings(groupId) {
       "groupRulesMessage"
     )
     VALUES (
+      ${randomUUID()},
       ${groupId},
       ${ownerAdminId},
       ${false},

@@ -1,4 +1,5 @@
 import express from "express";
+import { randomUUID } from "node:crypto";
 
 
 
@@ -77713,6 +77714,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
   if (toggle.field === "__bulk__") {
     await prisma.$executeRaw`
       INSERT INTO "GroupSetting" (
+        "id",
         "groupId",
         "ownerAdminId",
         "autoEnforcement",
@@ -77735,6 +77737,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         "notifyAdmins"
       )
       VALUES (
+        ${randomUUID()},
         ${group.id},
         ${group.ownerAdminId || null},
         ${nextValue},
@@ -77845,6 +77848,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
 
     await prisma.$executeRaw`
       INSERT INTO "GroupSetting" (
+        "id",
         "groupId",
         "ownerAdminId",
         "autoEnforcement",
@@ -77867,6 +77871,7 @@ async function handleProtectionStatusCommand({ group, lineUserId = null, content
         "notifyAdmins"
       )
       VALUES (
+        ${randomUUID()},
         ${group.id},
         ${group.ownerAdminId || null},
         ${toggleField === "autoEnforcement" ? nextValue : false},
