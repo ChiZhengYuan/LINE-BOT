@@ -266,6 +266,37 @@ export default function GroupDetailPage() {
     }
   };
 
+  const saveSettings = async () => {
+    if (!canWrite) return;
+    setSavingKey("settings");
+    setError("");
+    setSuccess("");
+
+    try {
+      const payload = {
+        ...settings,
+        protectionStatusTargetLineGroupId: settings.protectionStatusTargetLineGroupId || null
+      };
+      const result = await apiFetch(`/groups/${groupId}/settings`, {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+
+      if (result?.groupSetting) {
+        setSettings((current) => ({ ...current, ...result.groupSetting }));
+      }
+      if (result?.ruleSetting) {
+        setRule(result.ruleSetting);
+      }
+
+      setSuccess("門檻設定已儲存");
+    } catch (err) {
+      setError(err.message || "儲存門檻設定失敗");
+    } finally {
+      setSavingKey("");
+    }
+  };
+
   if (!groupId) return null;
 
   return (
